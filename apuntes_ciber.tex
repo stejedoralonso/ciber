@@ -1,0 +1,492 @@
+\documentclass[11pt,a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{multicol}
+\usepackage{booktabs,tabularx,array,colortbl,multirow}
+\usepackage[most]{tcolorbox}
+\usepackage{graphicx}
+\usepackage{needspace}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,backgrounds}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+
+\setlist{itemsep=2pt,topsep=4pt}
+
+\definecolor{uc3m}{HTML}{000E78}
+\newcommand{\destacar}[1]{\textcolor{red!70!black}{\textbf{#1}}}
+\newtcolorbox{importante}[1][]{colback=red!4,colframe=red!60!black,fonttitle=\bfseries,title={Importante},#1}
+\newtcolorbox{definicion}[1]{colback=uc3m!4,colframe=uc3m,fonttitle=\bfseries,title={#1}}
+\newtcolorbox{ejemplo}[1]{colback=gray!6,colframe=gray!60,colbacktitle=gray!25,coltitle=black,fonttitle=\bfseries,title={#1}}
+
+\title{\textbf{Ingeniería de Ciberseguridad}\\[4pt]\large Apuntes: Tema 1\\Departamento de Informática, UC3M}
+\author{}
+\date{}
+
+\addto\captionsspanish{\renewcommand{\partname}{}}
+\renewcommand{\thepart}{Tema~\arabic{part}}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\part{Introducción a la Ciberseguridad}
+
+%=====================================================================
+\chapter{Conceptos de seguridad informática}
+%=====================================================================
+
+\section{Una anécdota para empezar}
+
+\begin{ejemplo}{11 de febrero de 2013, EE.\,UU.: secuestro del EAS}
+Se produjo el secuestro (\emph{hijacking}) del \textbf{Emergency Alert System (EAS)}, el sistema estadounidense de alertas de emergencia, en emisoras de \textbf{Montana, Wisconsin, Michigan y Nuevo México}.
+
+Los atacantes emitieron una \textbf{Emergency Action Notification falsa}: el mensaje afirmaba que las autoridades civiles habían informado de que los cadáveres estaban saliendo de sus tumbas y atacando a los vivos, advertía de que no se intentara acercarse a esos cuerpos por considerarse extremadamente peligrosos e indicaba sintonizar una emisora de AM (\emph{Amplitude Modulation}, 920\,AM) para recibir información actualizada.
+
+\smallskip
+{\footnotesize Fuente: \url{https://en.wikipedia.org/wiki/2013_Emergency_Alert_System_hijackings}}
+\end{ejemplo}
+
+\begin{importante}[title={Idea clave}]
+Un sistema real del que depende la seguridad pública pudo ser manipulado para difundir un mensaje falso a la población.
+\end{importante}
+
+\section{¿De qué trata todo esto?}
+
+\begin{itemize}
+  \item Casi todos nuestros sistemas modernos dependen fuertemente de los ordenadores (por ejemplo: suministro de agua, servicios bancarios, transporte, sanidad, gestión del tráfico, suministro de alimentos\dots).
+  \item La mayoría de estos sistemas funcionan como se espera; sin embargo, ocasionalmente los sistemas informáticos \textbf{no funcionan como deberían}. Esto puede ocurrir por dos motivos:
+    \begin{itemize}
+      \item \textbf{Fallos benignos} (no intencionados).
+      \item \textbf{Ataques malintencionados}.
+    \end{itemize}
+  \item El objetivo final del curso es aprender \textbf{(algunas de) las formas en que un ordenador puede fallar y cómo protegerse\textsuperscript{*} frente a esos fallos}.
+    \begin{itemize}
+      \item[\textsuperscript{*}] Siempre que sea posible; en caso contrario, al menos \textbf{mitigar} los efectos de los fallos.
+    \end{itemize}
+\end{itemize}
+
+\section{¿Qué es la seguridad informática?}
+
+\begin{definicion}{Seguridad informática}
+La \textbf{protección de los activos valiosos} de un ordenador o de un sistema informático.
+\end{definicion}
+
+\subsection{Activos (\emph{assets})}
+
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.3}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\centering\textbf{Hardware} & \centering\textbf{Software} & \centering\arraybackslash\textbf{Datos} \\
+\midrule
+\vspace{-0.5\baselineskip}\begin{itemize}[leftmargin=*,nosep,topsep=0pt]
+  \item Ordenador
+  \item Dispositivos
+  \item Equipamiento de red
+\end{itemize}\vspace{2pt}
+&
+\vspace{-0.5\baselineskip}\begin{itemize}[leftmargin=*,nosep,topsep=0pt]
+  \item Sistema operativo
+  \item Utilidades
+  \item Aplicaciones comerciales
+  \item Aplicaciones propias / individuales
+\end{itemize}\vspace{2pt}
+&
+\vspace{-0.5\baselineskip}\begin{itemize}[leftmargin=*,nosep,topsep=0pt]
+  \item Documentos
+  \item Fotos
+  \item Música y audio
+  \item Vídeos
+  \item Correo electrónico
+  \item Trabajos de clase
+\end{itemize}\vspace{2pt} \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+
+\subsection{Valor de los activos}
+\begin{itemize}
+  \item \textbf{Costes}:
+    \begin{itemize}
+      \item \textbf{Coste monetario independiente} (valor intrínseco del activo).
+      \item \textbf{Coste de reposición} (lo que cuesta reemplazarlo).
+      \item \textbf{Coste personal}.
+    \end{itemize}
+  \item El valor puede ser \textbf{asimétrico} para la víctima y para el atacante.
+  \item El valor puede surgir de la \textbf{agregación} de los datos, y no del elemento individual.
+\end{itemize}
+
+\subsection{¿Cómo pueden salir mal las cosas?}
+\begin{itemize}
+  \item ¿\textbf{Qué} cosas malas pueden ocurrirle a los activos?
+  \item ¿\textbf{Quién o qué} puede causar (o permitir) que esas cosas ocurran?
+\end{itemize}
+
+\section{El paradigma Vulnerabilidad--Amenaza--Control}
+
+\begin{importante}
+\begin{itemize}
+  \item \textbf{Amenaza} (\emph{threat}): conjunto de circunstancias que tiene el potencial de causar pérdida o daño.
+  \item \textbf{Vulnerabilidad} (\emph{vulnerability}): debilidad del sistema que puede ser explotada para causar pérdida o daño.
+  \item \textbf{Atacante} (\emph{attacker}): alguien o algo que explota una vulnerabilidad para perpetrar un ataque contra el sistema.
+  \item \textbf{Control / contramedida} (\emph{control, countermeasure}): técnica o mecanismo que elimina o reduce la vulnerabilidad.
+\end{itemize}
+Los \textbf{controles impiden que las amenazas exploten las vulnerabilidades}.
+\end{importante}
+
+\section{La tríada CIA}
+
+La tríada CIA toma su nombre de las iniciales en inglés de las tres propiedades básicas de seguridad: \emph{Confidentiality}, \emph{Integrity} y \emph{Availability}.
+
+\begin{center}
+\begin{tikzpicture}
+  \draw[thick, uc3m, fill=uc3m!5] (0,0) -- (5,0) -- (2.5,3.6) -- cycle;
+  \node[above, font=\bfseries] at (2.5,3.6) {Confidencialidad};
+  \node[below left, font=\bfseries] at (0.3,0) {Integridad};
+  \node[below right, font=\bfseries] at (4.7,0) {Disponibilidad};
+  \node[font=\Large\bfseries, text=uc3m] at (2.5,1.25) {CIA};
+\end{tikzpicture}
+\end{center}
+
+\subsection{Confidencialidad (\emph{Confidentiality})}
+
+\begin{definicion}{Confidencialidad}
+Solo las personas o los sistemas \textbf{autorizados} pueden acceder a los datos protegidos.
+\end{definicion}
+
+Preguntas que plantea esta definición:
+\begin{itemize}
+  \item ¿Quién determina qué personas o sistemas están autorizados?
+  \item Al hablar de ``acceder'' a los datos, ¿nos referimos a leer un fichero? ¿Solo a una parte del fichero? ¿A modificar su contenido? ¿A añadir contenido? ¿A divulgarlo a terceros?
+\end{itemize}
+
+\subsubsection*{Política (de acceso)}
+
+\begin{importante}
+\[
+\text{Sujeto} + \text{Modo de acceso} + \text{Objeto} = \text{Sí/No}
+\]
+\begin{itemize}
+  \item \textbf{Sujeto} $\to$ Quién.
+  \item \textbf{Modo de acceso} $\to$ Cómo.
+  \item \textbf{Objeto} $\to$ A qué.
+  \item \textbf{Sí/No} $\to$ Decisión.
+\end{itemize}
+\end{importante}
+
+\subsection{Integridad (\emph{Integrity})}
+
+\begin{itemize}
+  \item Es \textbf{más difícil de acotar} que la confidencialidad.
+  \item Preservar la integridad de un elemento puede significar que dicho elemento esté:
+    \begin{itemize}
+      \item No modificado.
+      \item Modificado de formas autorizadas.
+      \item Modificado únicamente por partes autorizadas.
+      \item Consistente.
+      \item Etc.
+    \end{itemize}
+  \item Se garantiza \textbf{del mismo modo que la confidencialidad}: mediante un control riguroso de \textbf{quién} puede acceder \textbf{a qué} recursos y de \textbf{qué modo}.
+\end{itemize}
+
+\subsection{Disponibilidad (\emph{Availability})}
+
+\begin{itemize}
+  \item Al igual que la integridad, tiene \textbf{significados distintos en contextos distintos}. Se dice que un objeto o servicio está disponible si:
+    \begin{itemize}
+      \item Está presente en una \textbf{forma utilizable}.
+      \item Tiene \textbf{capacidad suficiente} para atender las necesidades del servicio.
+      \item El servicio \textbf{se completa en un periodo de tiempo aceptable}.
+      \item Etc.
+    \end{itemize}
+  \item \textbf{Se solapa con otras propiedades}: capacidad, rendimiento, tolerancia a fallos y usabilidad.
+\end{itemize}
+
+\subsection{Control de acceso (\emph{Access Control})}
+
+\begin{itemize}
+  \item Para implementar una política, la seguridad informática controla \textbf{todos los accesos, por parte de todos los sujetos, a todos los objetos protegidos, en todos los modos de acceso}.
+  \item Un control de acceso \textbf{pequeño y centralizado} es fundamental para preservar la \textbf{confidencialidad} y la \textbf{integridad}.
+  \item ¿Y la disponibilidad? (cuestión abierta planteada en clase).
+\end{itemize}
+
+\subsection{Autenticación (\emph{Authentication})}
+
+\begin{definicion}{Autenticación}
+Proceso de \textbf{descubrir (identificación)} o \textbf{confirmar} una identidad.
+\end{definicion}
+Es \textbf{precondición del control de acceso}.
+
+\section{Vulnerabilidades, amenazas y controles}
+
+Marco (\emph{framework}) que describe \textbf{cómo pueden ser dañados los activos} y \textbf{cómo contrarrestar o mitigar ese daño}.
+
+\subsection{Vulnerabilidades}
+
+\begin{definicion}{Vulnerabilidad}
+Debilidad del sistema (en la especificación, el diseño, la implementación, los procedimientos, etc.) que podría ser explotada para causar pérdida o daño.
+\end{definicion}
+
+Los sistemas informáticos tienen vulnerabilidades:
+\begin{itemize}
+  \item Autenticación débil.
+  \item Falta de control de acceso.
+  \item Errores en los programas.
+  \item Recursos finitos o inadecuados.
+  \item Protección física inadecuada.
+  \item (Y más.)
+\end{itemize}
+
+\subsection{Amenazas}
+
+\begin{definicion}{Amenaza}
+Conjunto de circunstancias que tiene el \textbf{potencial de causar pérdida o daño}.
+\end{definicion}
+
+\begin{itemize}
+  \item Un adversario que explota una vulnerabilidad \textbf{perpetra un ataque} contra el sistema.
+  \item Una amenaza se compone de \textbf{al menos 2} de las siguientes:
+    \begin{itemize}
+      \item \textbf{Intención}.
+      \item \textbf{Capacidad}.
+      \item \textbf{Oportunidad}.
+    \end{itemize}
+\end{itemize}
+
+\subsubsection*{Naturaleza del daño}
+
+Las propiedades básicas de seguridad se relacionan con la naturaleza del daño:
+
+\begin{importante}
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabular}{p{0.35\linewidth} c p{0.35\linewidth}}
+\toprule
+\textbf{Naturaleza del daño} & & \textbf{Propiedad afectada} \\
+\midrule
+Interceptación & $\to$ & Confidencialidad \\ \arrayrulecolor{gray!45}\cmidrule[0.2pt](lr){1-3}\arrayrulecolor{black}
+Interrupción & $\to$ & Disponibilidad \\ \arrayrulecolor{gray!45}\cmidrule[0.2pt](lr){1-3}\arrayrulecolor{black}
+Modificación & $\to$ & Integridad \\ \arrayrulecolor{gray!45}\cmidrule[0.2pt](lr){1-3}\arrayrulecolor{black}
+Fabricación & $\to$ & Autenticación \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{importante}
+
+Otros términos empleados:
+\begin{itemize}
+  \item \textbf{Divulgación} (\emph{disclosure}).
+  \item \textbf{Engaño} (\emph{deception}).
+  \item \textbf{Disrupción}.
+  \item \textbf{Usurpación}.
+\end{itemize}
+
+\subsection{Tipos de atacantes}
+
+¿Quiénes son? ¿Qué les motiva?
+
+\begin{center}
+\small
+{\setlength{\aboverulesep}{0pt}\setlength{\belowrulesep}{0pt}\renewcommand{\arraystretch}{1.35}%
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{4.2cm} !{\color{gray!45}\vrule width 0.2pt} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Atacante} & \textbf{Motivación} \\
+\midrule
+Individuos & Diversión, reto, venganza. \\ \arrayrulecolor{gray!45}\cmidrule[0.2pt]{1-2}\arrayrulecolor{black}
+Grupos organizados de alcance mundial & Beneficio económico común, agenda política común. \\ \arrayrulecolor{gray!45}\cmidrule[0.2pt]{1-2}\arrayrulecolor{black}
+Crimen organizado & Fraude, extorsión, blanqueo de capitales, tráficos ilícitos. \\ \arrayrulecolor{gray!45}\cmidrule[0.2pt]{1-2}\arrayrulecolor{black}
+Terroristas & El ordenador como \textbf{objetivo}, \textbf{método}, \textbf{facilitador} o \textbf{amplificador} de los ataques. \\
+\bottomrule
+\end{tabularx}}
+\end{center}
+
+\subsection{Controles}
+
+\begin{definicion}{Control o contramedida}
+Medio para contrarrestar las amenazas. Acción, dispositivo, procedimiento o técnica que \textbf{elimina o reduce una vulnerabilidad}.
+\end{definicion}
+
+\subsubsection*{Controles según su objetivo}
+\begin{itemize}
+  \item \textbf{Prevenir} (\emph{prevent}): bloqueando el ataque o cerrando la vulnerabilidad.
+  \item \textbf{Disuadir} (\emph{deter}): haciendo el ataque más difícil.
+  \item \textbf{Mitigar} (\emph{mitigate}): haciendo que su impacto sea menos grave.
+  \item \textbf{Detectar} (\emph{detect}): mientras ocurre o tiempo después de que haya ocurrido.
+  \item \textbf{Responder} (\emph{respond}): gestionando el incidente.
+  \item \textbf{Recuperarse} (\emph{recover}): de sus efectos.
+\end{itemize}
+
+\subsubsection*{Controles según su tipo}
+\begin{itemize}
+  \item \textbf{Físicos}: cerraduras, vigilantes humanos, rociadores contra incendios.
+  \item \textbf{Procedimentales (administrativos)}: leyes, políticas, procedimientos, contratos, \emph{copyright}, patentes.
+  \item \textbf{Técnicos}: contraseñas, cifrado, cortafuegos, IDS (\emph{Intrusion Detection Systems}, sistemas de detección de intrusiones), controles del sistema operativo.
+\end{itemize}
+
+\subsubsection*{Defensa en profundidad (\emph{defense in depth})}
+\begin{importante}
+Controles \textbf{solapados}: más de un control y \textbf{más de una clase} de control.
+\end{importante}
+
+%=====================================================================
+\chapter{Principios de diseño}
+%=====================================================================
+
+Contenido de este capítulo:
+\begin{itemize}
+  \item \textbf{Dos reglas}.
+  \item \textbf{P1 -- Mínimo privilegio}.
+  \item \textbf{P2 -- Valores por defecto seguros ante fallo}.
+  \item \textbf{P3 -- Economía de mecanismo}.
+  \item \textbf{P4 -- Mediación completa}.
+  \item \textbf{P5 -- Diseño abierto}.
+  \item \textbf{P6 -- Separación de privilegios}.
+  \item \textbf{P7 -- Mínimo mecanismo común}.
+  \item \textbf{P8 -- Aceptabilidad}.
+\end{itemize}
+
+\section{Las dos reglas}
+
+\begin{importante}
+\begin{itemize}
+  \item \textbf{Simplicidad}
+    \begin{itemize}
+      \item Hay \textbf{menos cosas que puedan salir mal}.
+      \item Menos inconsistencias posibles.
+      \item Es más fácil de entender.
+    \end{itemize}
+  \item \textbf{Restricción}
+    \begin{itemize}
+      \item \textbf{Minimizar el acceso}.
+      \item \textbf{Inhibir la comunicación}.
+    \end{itemize}
+\end{itemize}
+\end{importante}
+
+\section{P1 -- Mínimo privilegio (\emph{Least Privilege})}
+
+\begin{definicion}{Mínimo privilegio}
+A un sujeto se le deben conceder \textbf{únicamente los privilegios necesarios para completar su tarea}.
+\end{definicion}
+\begin{itemize}
+  \item Es la \textbf{función}, y no la identidad, la que determina los privilegios.
+  \item Los derechos se \textbf{añaden cuando se necesitan} y se \textbf{descartan tras su uso}.
+  \item Protección mínima.
+\end{itemize}
+
+\section{P2 -- Valores por defecto seguros ante fallo (\emph{Fail-safe Defaults})}
+
+\begin{definicion}{Valores por defecto seguros ante fallo}
+La acción por defecto es \textbf{denegar el acceso}.
+\end{definicion}
+\begin{itemize}
+  \item Si una acción falla, el sistema queda \textbf{tan seguro como estaba antes de comenzar} dicha acción.
+\end{itemize}
+
+\section{P3 -- Economía de mecanismo (\emph{Economy of Mechanism})}
+
+\begin{definicion}{Economía de mecanismo}
+Mantenerlo \textbf{tan simple como sea posible}: principio \textbf{KISS} (\emph{Keep It Simple, Stupid}).
+\end{definicion}
+\begin{itemize}
+  \item Simple significa que \textbf{menos cosas pueden salir mal}.
+    \begin{itemize}
+      \item Y cuando ocurren errores, son \textbf{más fáciles de entender y corregir}.
+    \end{itemize}
+  \item Es \textbf{especialmente crítico en las interfaces y en las interacciones}.
+\end{itemize}
+
+\section{P4 -- Mediación completa (\emph{Complete Mediation})}
+
+\begin{definicion}{Mediación completa}
+\textbf{Comprobar cada acceso}.
+\end{definicion}
+Habitualmente la comprobación se hace \textbf{una sola vez}, en la primera acción:
+\begin{itemize}
+  \item En algunos UNIX el acceso se comprueba al \textbf{abrir} (\emph{open}) y no se vuelve a comprobar después.
+  \item Si los permisos cambian después, puede producirse un \textbf{acceso no autorizado}.
+\end{itemize}
+
+\section{P5 -- Diseño abierto (\emph{Open Design})}
+
+\begin{definicion}{Diseño abierto}
+La seguridad \textbf{no debe depender del secreto del diseño o de la implementación}.
+\end{definicion}
+\begin{itemize}
+  \item Se malinterpreta popularmente como que el código fuente deba ser público.
+    \begin{itemize}
+      \item El secreto \textbf{puede} mejorar la seguridad.
+      \item Pero si el diseño queda expuesto, la seguridad del mecanismo \textbf{no debe verse afectada}.
+    \end{itemize}
+  \item Depender del secreto del diseño se conoce como \textbf{``seguridad por oscuridad''} (\emph{security through obscurity}).
+\end{itemize}
+
+\section{P6 -- Separación de privilegios (\emph{Separation of Privilege})}
+
+\begin{center}
+\emph{``Un gran poder conlleva un gran\dots\ \textbf{peligro}''.}
+\end{center}
+
+\begin{definicion}{Separación de privilegios}
+El privilegio, o autoridad, debe estar \textbf{repartido entre más de una entidad} para prevenir el fraude, el sabotaje, el robo y otros usos indebidos.
+\end{definicion}
+
+\begin{ejemplo}{Ejemplo clásico: los cheques}
+Quien \textbf{firma} los cheques no puede ser quien los \textbf{imprime}, porque entonces una única persona podría robar dinero. El defraudador tendría que \textbf{comprometer (al menos) a dos personas}.
+\end{ejemplo}
+
+\section{P7 -- Mínimo mecanismo común (\emph{Least Common Mechanism})}
+
+\begin{definicion}{Mínimo mecanismo común}
+Los mecanismos (es decir, los recursos) \textbf{no deberían compartirse}.
+\end{definicion}
+\begin{itemize}
+  \item La información puede fluir a través de los \textbf{canales compartidos}.
+    \begin{itemize}
+      \item \textbf{Canales encubiertos} (\emph{covert channels}).
+    \end{itemize}
+  \item \textbf{Aislamiento}:
+    \begin{itemize}
+      \item Máquinas virtuales.
+      \item \emph{Sandboxing}.
+    \end{itemize}
+\end{itemize}
+
+\section{P8 -- Aceptabilidad (\emph{Acceptability})}
+
+\begin{definicion}{Aceptabilidad}
+Los mecanismos de seguridad \textbf{no deben aumentar la dificultad de acceder a un recurso}.
+\end{definicion}
+\begin{itemize}
+  \item \textbf{Ocultar la complejidad} introducida por los mecanismos de seguridad.
+  \item Facilidad de instalación, configuración y uso.
+  \item Los \textbf{factores humanos} son críticos aquí:
+    \begin{itemize}
+      \item Factores psicológicos.
+      \item Creencias personales.
+    \end{itemize}
+\end{itemize}
+
+\section{Epílogo}
+
+\begin{importante}[title={Ideas clave del tema}]
+\begin{itemize}
+  \item \textbf{Simplicidad}: aspirar a la mínima complejidad posible.
+  \item \textbf{Restrictividad}: ¡la información quiere ser libre! (por eso hay que restringirla activamente).
+  \item \textbf{Comprender}:
+    \begin{itemize}
+      \item los \textbf{objetivos} de la seguridad propuesta, y
+      \item el \textbf{entorno} en el que los mecanismos serán desarrollados y desplegados.
+    \end{itemize}
+\end{itemize}
+\end{importante}
+
+\end{document}
